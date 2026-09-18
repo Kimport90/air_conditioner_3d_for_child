@@ -9,7 +9,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Кондиционер 3D">
     <meta name="theme-color" content="#0a0e17">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=2">
     <!-- Three.js и OrbitControls -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -134,14 +134,16 @@
     </div>
 
     <!-- Подключение скриптов приложения -->
-    <script src="sound.js"></script>
-    <script src="scene.js"></script>
-    <script src="app.js"></script>
+    <script src="sound.js?v=2"></script>
+    <script src="scene.js?v=2"></script>
+    <script src="app.js?v=2"></script>
     <script>
-        // Регистрация Service Worker для автономной работы на iPad
+        // Регистрация Service Worker для автономной работы на iPad с принудительным обновлением кэша
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').catch(() => {});
+                navigator.serviceWorker.register('./sw.js').then((reg) => {
+                    reg.update();
+                }).catch(() => {});
             });
         }
     </script>

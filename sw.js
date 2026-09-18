@@ -1,23 +1,24 @@
-// sw.js - Service Worker для полной автономной работы на iPad без подключения к ноутбуку
-const CACHE_NAME = 'ac-3d-cache-v1';
+// sw.js - Service Worker v2 с поддержкой мгновенных обновлений (Network-First)
+const CACHE_NAME = 'ac-3d-cache-v2';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
-    './style.css',
-    './sound.js',
-    './scene.js',
-    './app.js',
+    './style.css?v=2',
+    './sound.js?v=2',
+    './scene.js?v=2',
+    './app.js?v=2',
     'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
     'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js'
 ];
 
 self.addEventListener('install', (event) => {
+    self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
             return cache.addAll(ASSETS_TO_CACHE).catch((err) => {
-                console.warn('Some external assets could not be pre-cached, will cache on fetch', err);
+                console.warn('Pre-cache warning:', err);
             });
-        }).then(() => self.skipWaiting())
+        })
     );
 });
 
@@ -31,24 +32,23 @@ self.addEventListener('activate', (event) => {
     );
 });
 
+// Стратегия Network-First: если есть сеть, берем самое свежее; если нет (офлайн) — берем из кэша
 self.addEventListener('fetch', (event) => {
     event.respondWith(
-        caches.match(event.request).then((cachedResponse) => {
-            if (cachedResponse) {
-                return cachedResponse;
-            }
-            return fetch(event.request).then((networkResponse) => {
+        fetch(event.request)
+            .then((networkResponse) => {
                 if (networkResponse && networkResponse.status === 200) {
-                    const responseToCache = networkResponse.clone();
+                    const responseClone = networkResponse.clone();
                     caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(event.request, responseToCache);
+                        cache.put(event.request, responseClone);
                     });
                 }
                 return networkResponse;
-            }).catch(() => {
-                // Если нет сети, отдаем закешированный index.html
-                return caches.match('./index.html');
-            });
-        })
+            })
+            .catch(() => {
+                return caches.match(event.request).then((cached) => {
+                    return cached || caches.match('./index.html');
+                });
+            })
     );
 });
