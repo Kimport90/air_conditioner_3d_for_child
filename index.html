@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Как работает кондиционер: Секреты холода | 3D Лаборатория</title>
+    <!-- Поддержка iPad / iOS Web App -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Кондиционер 3D">
+    <meta name="theme-color" content="#0a0e17">
+    <link rel="stylesheet" href="style.css">
+    <!-- Three.js и OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+    <!-- 3D Canvas Контейнер -->
+    <div id="canvas-container"></div>
+
+    <!-- Верхняя шапка -->
+    <div class="header-bar">
+        <div class="title-box">
+            <h1>❄️ Как работает кондиционер: Секреты холода</h1>
+            <p>Интерактивный 3D-разрез сплит-системы • Вращай мышкой, чтобы рассмотреть!</p>
+        </div>
+        <div class="quick-actions">
+            <button id="btn-sound-toggle" class="action-btn active" title="Включить или выключить звук">
+                🔊 <span>Звук: Вкл</span>
+            </button>
+            <button id="btn-xray-toggle" class="action-btn active" title="Сделать корпус прозрачным или сплошным">
+                🔍 <span>Рентген: Вкл</span>
+            </button>
+            <button id="btn-slowmo" class="action-btn" title="Замедлить движение частиц фреона">
+                ⚡ <span>Скорость: Обычная</span>
+            </button>
+            <button id="btn-reset-cam" class="action-btn" title="Вернуться к общему виду">
+                🏠 <span>Общий вид</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Легенда потоков (Слева внизу) -->
+    <div class="flow-legend">
+        <div class="legend-title">🔬 Цикл хладагента (Фреона):</div>
+        <div class="legend-item">
+            <div class="legend-dot dot-hot"></div>
+            <span>Горячий сжатый газ (после компрессора, +80°C)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-dot dot-warm"></div>
+            <span>Теплая сконденсированная жидкость</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-dot dot-cold"></div>
+            <span>Ледяная смесь после клапана ТРВ (-5°C)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-dot dot-vapor"></div>
+            <span>Холодный пар, забравший тепло из комнаты</span>
+        </div>
+    </div>
+
+    <!-- Быстрый выбор ключевых узлов (Снизу по центру) -->
+    <div class="nodes-bar">
+        <button class="node-pill" data-id="compressor">🫀 Компрессор</button>
+        <button class="node-pill" data-id="evaporator">❄️ Испаритель (Холод)</button>
+        <button class="node-pill" data-id="valve">🔘 Клапан ТРВ</button>
+        <button class="node-pill" data-id="condenser">♨️ Конденсатор</button>
+        <button class="node-pill" data-id="outdoorFan">🌪️ Пропеллер улицы</button>
+        <button class="node-pill" data-id="indoorFan">🌀 Турбина</button>
+        <button class="node-pill" data-id="reversingValve">🔄 Зима / Лето</button>
+    </div>
+
+    <!-- Всплывающая обучающая карточка узла -->
+    <div id="node-card" class="node-card">
+        <button id="card-close-btn" class="card-close-btn" title="Закрыть">✕</button>
+        <h2 id="card-title" class="card-title">🫀 Компрессор</h2>
+        <div id="card-subtitle" class="card-subtitle">Сердце системы</div>
+        <div id="card-desc" class="card-desc">Описание узла...</div>
+        <button id="card-action-btn" class="card-action-btn">🔍 Отдалить камеру к общей схеме</button>
+    </div>
+
+    <!-- Интерактивный пульт кондиционера (Справа внизу) -->
+    <div class="remote-control">
+        <div class="remote-header">
+            <span>AIR REMOTE</span>
+            <div id="power-ind" class="power-indicator" title="Индикатор питания"></div>
+        </div>
+
+        <!-- LCD экран -->
+        <div class="remote-screen">
+            <div class="screen-top">
+                <span id="screen-mode" class="mode-badge">COOL ❄️</span>
+                <span>SET TEMP</span>
+            </div>
+            <div id="screen-temp" class="temp-digits">22°</div>
+            <div class="screen-bottom">
+                <span id="screen-fan-txt">СРЕДНИЙ</span>
+                <div class="fan-bars">
+                    <div id="bar-1" class="fan-bar active"></div>
+                    <div id="bar-2" class="fan-bar active"></div>
+                    <div id="bar-3" class="fan-bar"></div>
+                    <div id="bar-4" class="fan-bar"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Кнопки пульта -->
+        <div class="remote-buttons">
+            <div class="btn-row">
+                <button id="btn-power" class="r-btn power-btn" title="Включить / Выключить кондиционер">⏻</button>
+                <button id="btn-turbo" class="r-btn turbo-btn" title="Турбо режим максимальной мощности">⚡ ТУРБО</button>
+            </div>
+            <div class="btn-row">
+                <button id="btn-temp-up" class="r-btn temp-btn" title="Прибавить температуру">▲</button>
+                <button id="btn-temp-down" class="r-btn temp-btn" title="Убавить температуру">▼</button>
+            </div>
+            <div class="btn-row">
+                <button id="btn-mode" class="r-btn" title="Переключить режим: Холод / Тепло / Вентилятор">🔄 РЕЖИМ</button>
+                <button id="btn-fan" class="r-btn" title="Скорость вентилятора">💨 СКОРОСТЬ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Подключение скриптов приложения -->
+    <script src="sound.js"></script>
+    <script src="scene.js"></script>
+    <script src="app.js"></script>
+    <script>
+        // Регистрация Service Worker для автономной работы на iPad
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch(() => {});
+            });
+        }
+    </script>
+</body>
+</html>
