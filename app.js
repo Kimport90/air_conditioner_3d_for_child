@@ -225,6 +225,35 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // 8. Сворачивание и разворачивание пульта управления
+    const remoteEl = document.getElementById('remote-control');
+    const collapseBtn = document.getElementById('btn-remote-collapse');
+
+    function toggleRemoteCollapse(forceState) {
+        if (!remoteEl) return;
+        const isCollapsed = forceState !== undefined ? forceState : !remoteEl.classList.contains('collapsed');
+        remoteEl.classList.toggle('collapsed', isCollapsed);
+        if (window.soundEngine) {
+            window.soundEngine.playRemoteBeep();
+        }
+    }
+
+    if (collapseBtn) {
+        collapseBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleRemoteCollapse(true);
+        });
+    }
+
+    if (remoteEl) {
+        remoteEl.addEventListener('click', (e) => {
+            if (remoteEl.classList.contains('collapsed')) {
+                e.stopPropagation();
+                toggleRemoteCollapse(false);
+            }
+        });
+    }
+
     // Первоначальное обновление интерфейса
     updateRemoteUI();
 });

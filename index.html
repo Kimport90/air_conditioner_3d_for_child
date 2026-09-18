@@ -82,11 +82,20 @@
     </div>
 
     <!-- Интерактивный пульт кондиционера (Справа внизу) -->
-    <div class="remote-control">
-        <div class="remote-header">
-            <span>AIR REMOTE</span>
-            <div id="power-ind" class="power-indicator" title="Индикатор питания"></div>
+    <div id="remote-control" class="remote-control">
+        <!-- Виджет в свернутом виде (круглая кнопка) -->
+        <div id="remote-collapsed-badge" class="remote-collapsed-badge" title="Развернуть пульт">
+            <span class="collapsed-icon">📱</span>
         </div>
+
+        <div class="remote-inner">
+            <div class="remote-header">
+                <div class="remote-header-left">
+                    <span>AIR REMOTE</span>
+                    <div id="power-ind" class="power-indicator" title="Индикатор питания"></div>
+                </div>
+                <button id="btn-remote-collapse" class="btn-collapse-remote" title="Свернуть пульт">▾</button>
+            </div>
 
         <!-- LCD экран -->
         <div class="remote-screen">
@@ -120,6 +129,7 @@
                 <button id="btn-mode" class="r-btn" title="Переключить режим: Холод / Тепло / Вентилятор">🔄 РЕЖИМ</button>
                 <button id="btn-fan" class="r-btn" title="Скорость вентилятора">💨 СКОРОСТЬ</button>
             </div>
+        </div>
         </div>
     </div>
 
