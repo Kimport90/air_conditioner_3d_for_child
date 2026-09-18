@@ -96,6 +96,65 @@ class SoundEngine {
         });
     }
 
+    // Звук Крипера: забавный ретро 8-битный прыжок + мягкое игровое шипение
+    playCreeperSound() {
+        this.init();
+        this.resume();
+        if (this.isMuted || !this.ctx) return;
+
+        const now = this.ctx.currentTime;
+
+        // 1. Игровой 8-битный прыжок (арпеджио)
+        const notes = [261.63, 329.63, 392.00, 523.25, 659.25]; // C4, E4, G4, C5, E5
+        notes.forEach((freq, idx) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'square';
+            const t = now + idx * 0.04;
+            osc.frequency.setValueAtTime(freq, t);
+
+            gain.gain.setValueAtTime(0.05, t);
+            gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(t);
+            osc.stop(t + 0.08);
+        });
+
+        // 2. Короткое дружелюбное шипение (фильтрованный шум)
+        try {
+            const bufferSize = Math.floor(this.ctx.sampleRate * 0.25);
+            const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+            const output = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                output[i] = (Math.random() * 2 - 1) * 0.25;
+            }
+
+            const whiteNoise = this.ctx.createBufferSource();
+            whiteNoise.buffer = buffer;
+
+            const bandpass = this.ctx.createBiquadFilter();
+            bandpass.type = 'bandpass';
+            bandpass.frequency.setValueAtTime(3200, now + 0.12);
+            bandpass.Q.setValueAtTime(1.8, now + 0.12);
+
+            const noiseGain = this.ctx.createGain();
+            noiseGain.gain.setValueAtTime(0.001, now + 0.12);
+            noiseGain.gain.linearRampToValueAtTime(0.07, now + 0.18);
+            noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.36);
+
+            whiteNoise.connect(bandpass);
+            bandpass.connect(noiseGain);
+            noiseGain.connect(this.ctx.destination);
+
+            whiteNoise.start(now + 0.12);
+            whiteNoise.stop(now + 0.36);
+        } catch (e) {
+            // fallback
+        }
+    }
+
     // Низкий рокочущий звук компрессора
     setupCompressor() {
         if (!this.ctx) return;

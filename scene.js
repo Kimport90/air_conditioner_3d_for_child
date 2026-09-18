@@ -100,6 +100,7 @@ class ACScene {
         this.buildIndoorUnit();
         this.buildOutdoorUnit();
         this.buildPiping();
+        this.buildCreeper();
         this.setupRefrigerantCircuit();
         this.setupAirflowParticles();
         this.setupHotspots();
@@ -109,6 +110,7 @@ class ACScene {
         this.mouse = new THREE.Vector2();
         window.addEventListener('resize', () => this.onWindowResize());
         this.renderer.domElement.addEventListener('pointerdown', (e) => this.onPointerDown(e));
+        this.renderer.domElement.addEventListener('pointermove', (e) => this.onPointerMove(e));
 
         // 6. Запуск главного цикла анимации
         this.clock = new THREE.Clock();
@@ -932,6 +934,293 @@ class ACScene {
         this.scene.add(pipeGroup);
     }
 
+    // ----------------------------------------------------
+    // ПАСХАЛКА: 3D КРИПЕР ИЗ MINECRAFT
+    // ----------------------------------------------------
+    generateCreeperTextures() {
+        const greenPalette = [
+            '#427429', '#568c34', '#335d1f', '#68a63e', 
+            '#284a17', '#75b945', '#4b832e', '#5ea037'
+        ];
+        const darkPalette = ['#121212', '#1b1b1b', '#242424', '#0d0d0d'];
+
+        // 1. Текстура лица Крипера (8x8 ячеек по 16px = 128x128px)
+        const faceCanvas = document.createElement('canvas');
+        faceCanvas.width = 128;
+        faceCanvas.height = 128;
+        const faceCtx = faceCanvas.getContext('2d');
+        faceCtx.imageSmoothingEnabled = false;
+
+        const facePattern = [
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 1, 1, 0, 0, 1, 1, 0],
+            [0, 1, 1, 0, 0, 1, 1, 0],
+            [0, 0, 0, 1, 1, 0, 0, 0],
+            [0, 0, 1, 1, 1, 1, 0, 0],
+            [0, 0, 1, 1, 1, 1, 0, 0],
+            [0, 0, 1, 0, 0, 1, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0]
+        ];
+
+        const cellSize = 16;
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                if (facePattern[r][c] === 1) {
+                    faceCtx.fillStyle = darkPalette[Math.floor(Math.random() * darkPalette.length)];
+                } else {
+                    faceCtx.fillStyle = greenPalette[Math.floor(Math.random() * greenPalette.length)];
+                }
+                faceCtx.fillRect(c * cellSize, r * cellSize, cellSize, cellSize);
+            }
+        }
+
+        const faceTexture = new THREE.CanvasTexture(faceCanvas);
+        faceTexture.magFilter = THREE.NearestFilter;
+        faceTexture.minFilter = THREE.NearestFilter;
+
+        // 2. Текстура тела и ног (пиксельный зеленый камуфляж)
+        const bodyCanvas = document.createElement('canvas');
+        bodyCanvas.width = 128;
+        bodyCanvas.height = 128;
+        const bodyCtx = bodyCanvas.getContext('2d');
+        bodyCtx.imageSmoothingEnabled = false;
+
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                bodyCtx.fillStyle = greenPalette[Math.floor(Math.random() * greenPalette.length)];
+                bodyCtx.fillRect(c * cellSize, r * cellSize, cellSize, cellSize);
+            }
+        }
+
+        const bodyTexture = new THREE.CanvasTexture(bodyCanvas);
+        bodyTexture.magFilter = THREE.NearestFilter;
+        bodyTexture.minFilter = THREE.NearestFilter;
+
+        return { faceTexture, bodyTexture };
+    }
+
+    buildCreeper() {
+        const { faceTexture, bodyTexture } = this.generateCreeperTextures();
+
+        this.creeperGroup = new THREE.Group();
+        // Размещаем на полу комнаты прямо под нисходящим потоком кондиционера
+        this.creeperBasePos = new THREE.Vector3(-2.1, -0.25, 0.95);
+        this.creeperGroup.position.copy(this.creeperBasePos);
+
+        const greenMat = new THREE.MeshStandardMaterial({
+            map: bodyTexture,
+            roughness: 0.85,
+            metalness: 0.05
+        });
+
+        // 1. Голова (куб 0.24 x 0.24 x 0.24)
+        const faceMat = new THREE.MeshStandardMaterial({
+            map: faceTexture,
+            roughness: 0.85,
+            metalness: 0.05
+        });
+        const headMaterials = [greenMat, greenMat, greenMat, greenMat, faceMat, greenMat];
+        const headGeo = new THREE.BoxGeometry(0.24, 0.24, 0.24);
+        this.creeperHead = new THREE.Mesh(headGeo, headMaterials);
+        this.creeperHead.castShadow = true;
+        this.creeperHead.position.set(0, 0.60, 0);
+
+        // 2. Тело (0.24 x 0.32 x 0.14)
+        const bodyGeo = new THREE.BoxGeometry(0.24, 0.32, 0.14);
+        this.creeperBody = new THREE.Mesh(bodyGeo, greenMat);
+        this.creeperBody.castShadow = true;
+        this.creeperBody.position.set(0, 0.32, 0);
+
+        // 3. Лапы (4 штуки: 0.10 x 0.16 x 0.10)
+        const legGeo = new THREE.BoxGeometry(0.10, 0.16, 0.10);
+        const legOffsets = [
+            [-0.065, 0.08, 0.065],  // передняя левая
+            [0.065, 0.08, 0.065],   // передняя правая
+            [-0.065, 0.08, -0.065], // задняя левая
+            [0.065, 0.08, -0.065]   // задняя правая
+        ];
+        this.creeperLegs = [];
+        legOffsets.forEach(pos => {
+            const leg = new THREE.Mesh(legGeo, greenMat);
+            leg.castShadow = true;
+            leg.position.set(pos[0], pos[1], pos[2]);
+            this.creeperGroup.add(leg);
+            this.creeperLegs.push(leg);
+        });
+
+        // Мягкая тень под ногами на полу
+        const shadowGeo = new THREE.PlaneGeometry(0.36, 0.36);
+        const shadowMat = new THREE.MeshBasicMaterial({
+            color: 0x070b12,
+            transparent: true,
+            opacity: 0.55
+        });
+        const shadow = new THREE.Mesh(shadowGeo, shadowMat);
+        shadow.rotation.x = -Math.PI / 2;
+        shadow.position.set(0, 0.002, 0);
+        this.creeperGroup.add(shadow);
+
+        this.creeperGroup.add(this.creeperBody);
+        this.creeperGroup.add(this.creeperHead);
+
+        // Поворот лицом к центру комнаты
+        this.creeperGroup.rotation.y = 0.42;
+
+        // Кликабельные объекты для Raycaster
+        this.creeperClickables = [this.creeperHead, this.creeperBody, ...this.creeperLegs];
+        this.creeperClickables.forEach(mesh => {
+            mesh.userData.isCreeper = true;
+        });
+
+        // 4. Облачко реплик
+        this.buildCreeperSpeechBubble();
+
+        this.scene.add(this.creeperGroup);
+
+        this.creeperState = {
+            isJumping: false,
+            jumpProgress: 0,
+            bubbleTimer: 0
+        };
+    }
+
+    buildCreeperSpeechBubble() {
+        this.speechBubbleCanvas = document.createElement('canvas');
+        this.speechBubbleCanvas.width = 512;
+        this.speechBubbleCanvas.height = 256;
+        this.speechBubbleCtx = this.speechBubbleCanvas.getContext('2d');
+
+        this.speechBubbleTexture = new THREE.CanvasTexture(this.speechBubbleCanvas);
+        const spriteMat = new THREE.SpriteMaterial({
+            map: this.speechBubbleTexture,
+            transparent: true,
+            opacity: 0
+        });
+
+        this.speechBubbleSprite = new THREE.Sprite(spriteMat);
+        this.speechBubbleSprite.position.set(0, 0.95, 0);
+        this.speechBubbleSprite.scale.set(1.4, 0.7, 1);
+        this.creeperGroup.add(this.speechBubbleSprite);
+    }
+
+    renderSpeechBubble(text) {
+        const ctx = this.speechBubbleCtx;
+        const w = 512;
+        const h = 256;
+        ctx.clearRect(0, 0, w, h);
+
+        // Фон комиксного облачка
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+        ctx.strokeStyle = '#22c55e';
+        ctx.lineWidth = 6;
+
+        // Закругленное тело облачка
+        ctx.beginPath();
+        ctx.roundRect(16, 16, 480, 165, 22);
+        ctx.fill();
+        ctx.stroke();
+
+        // Хвостик вниз к голове Крипера
+        ctx.beginPath();
+        ctx.moveTo(232, 180);
+        ctx.lineTo(256, 235);
+        ctx.lineTo(280, 180);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+        ctx.fill();
+        ctx.stroke();
+
+        // Заголовок-бейдж
+        ctx.fillStyle = '#4ade80';
+        ctx.font = 'bold 20px "Segoe UI", system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('🟩 КРИПЕР ИЗ MINECRAFT', 256, 46);
+
+        // Текст реплики
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 24px "Segoe UI", system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        const words = text.split(' ');
+        const lines = [];
+        let curLine = '';
+        words.forEach(word => {
+            const testLine = curLine ? `${curLine} ${word}` : word;
+            if (ctx.measureText(testLine).width > 440) {
+                lines.push(curLine);
+                curLine = word;
+            } else {
+                curLine = testLine;
+            }
+        });
+        if (curLine) lines.push(curLine);
+
+        const lineHeight = 32;
+        const startY = 110 - ((lines.length - 1) * lineHeight) / 2;
+        lines.forEach((line, idx) => {
+            ctx.fillText(line, 256, startY + idx * lineHeight);
+        });
+
+        this.speechBubbleTexture.needsUpdate = true;
+    }
+
+    onCreeperClicked() {
+        if (window.soundEngine) {
+            window.soundEngine.playCreeperSound();
+        }
+
+        // Запуск анимации прыжка и таймера реплики
+        this.creeperState.isJumping = true;
+        this.creeperState.jumpProgress = 0;
+        this.creeperState.bubbleTimer = 3.6;
+
+        let phrasePool = [];
+        if (!this.state.power) {
+            phrasePool = [
+                "Шшш... Кондиционер спит, и я отдыхаю! Включи ⏻!",
+                "Без кондиционера душно... Запусти прохладу на пульте!",
+                "Ш-ш-ш... Тихо в комнате, никто не взрывается!"
+            ];
+        } else if (this.state.mode === 'cool') {
+            phrasePool = [
+                `Бррр! Сделай потеплее, а то я замерзну! (+${this.state.targetTemp}°C)`,
+                "Ш-ш-ш... Поток холода дует прямо на меня!",
+                "Ого, мороз! У меня порох превратился в сосульки!",
+                `Шшш... Я не крипер, я снеговик! (+${this.state.targetTemp}°C)`
+            ];
+        } else if (this.state.mode === 'heat') {
+            phrasePool = [
+                "Ооо, тепло пошло! Вот бы такой обогрев в шахту...",
+                "Шшш... Приятный теплый ветерок, даже взрываться неохота!",
+                `Как хорошо погреться под комнатным блоком! (+${this.state.targetTemp}°C)`
+            ];
+        } else {
+            phrasePool = [
+                "Ш-ш-ш... Ветерок отличный, лопасти крутятся!",
+                "Привет! Не бойся, я не бум-бум, я просто охлаждаюсь!",
+                "Кондиционеры — это наука! Круто тут всё устроено!"
+            ];
+        }
+
+        const phrase = phrasePool[Math.floor(Math.random() * phrasePool.length)];
+        this.renderSpeechBubble(phrase);
+    }
+
+    onPointerMove(event) {
+        const rect = this.renderer.domElement.getBoundingClientRect();
+        this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        const clickables = this.hotspotMeshes.map(h => h.sphere);
+        if (this.creeperClickables) {
+            clickables.push(...this.creeperClickables);
+        }
+        const intersects = this.raycaster.intersectObjects(clickables);
+        this.renderer.domElement.style.cursor = intersects.length > 0 ? 'pointer' : 'default';
+    }
+
     setupRefrigerantCircuit() {
         // Замкнутый контур циркуляции хладагента (CatmullRomCurve3)
         // Полный цикл:
@@ -1308,6 +1597,16 @@ class ACScene {
             const hit = intersects[0].object;
             const hotspotId = hit.userData.hotspotId;
             this.selectHotspot(hotspotId);
+            return;
+        }
+
+        // Проверка клика по Криперу
+        if (this.creeperClickables && this.creeperClickables.length > 0) {
+            const creeperHits = this.raycaster.intersectObjects(this.creeperClickables);
+            if (creeperHits.length > 0) {
+                this.onCreeperClicked();
+                return;
+            }
         }
     }
 
@@ -1628,7 +1927,72 @@ class ACScene {
             h.pulseRing.material.opacity = Math.max(0.05, 0.6 - (scale - 1.0) * 2.0);
         });
 
-        // 6. Рендеринг сцены
+        // 6. Анимация Крипера (реакция на климат, дрожь от холода, прыжки и реплики)
+        if (this.creeperGroup && this.creeperState) {
+            let shiverX = 0;
+            let shiverZ = 0;
+
+            if (this.state.power && this.state.mode === 'cool' && this.physics.airflowIntensity > 0.05) {
+                // Дрожь от холода в струе кондиционера
+                const coldFactor = Math.max(0.3, (30 - this.state.targetTemp) / 14); // 16°C -> 1.0, 30°C -> 0.3
+                const shiverIntensity = 0.016 * coldFactor * this.physics.airflowIntensity;
+                shiverX = Math.sin(time * 46) * shiverIntensity;
+                shiverZ = Math.cos(time * 42) * shiverIntensity;
+
+                // Голова забавно втягивается в плечи и дрожит
+                this.creeperHead.rotation.x = 0.12 + Math.sin(time * 44) * 0.04;
+                this.creeperHead.rotation.y = 0;
+                this.creeperBody.scale.y = 1.0;
+            } else if (this.state.power && this.state.mode === 'heat' && this.physics.airflowIntensity > 0.05) {
+                // Расслабленное дыхание и наслаждение теплом
+                this.creeperHead.rotation.x = -0.06 + Math.sin(time * 2.2) * 0.03;
+                this.creeperHead.rotation.y = Math.sin(time * 1.2) * 0.08;
+                this.creeperBody.scale.y = 1.0 + Math.sin(time * 2.2) * 0.025;
+            } else {
+                // Спокойное дыхание / idle
+                this.creeperHead.rotation.x = 0;
+                this.creeperHead.rotation.y = Math.sin(time * 0.9) * 0.16;
+                this.creeperBody.scale.y = 1.0;
+            }
+
+            // Анимация прыжка при клике
+            let jumpY = 0;
+            if (this.creeperState.isJumping) {
+                this.creeperState.jumpProgress += delta * 2.6;
+                if (this.creeperState.jumpProgress >= 1.0) {
+                    this.creeperState.jumpProgress = 0;
+                    this.creeperState.isJumping = false;
+                } else {
+                    const jp = this.creeperState.jumpProgress;
+                    jumpY = Math.sin(jp * Math.PI) * 0.32;
+                    // Игривый поворот головы при прыжке
+                    this.creeperHead.rotation.z = Math.sin(jp * Math.PI * 2) * 0.35;
+                }
+            } else {
+                this.creeperHead.rotation.z = 0;
+            }
+
+            this.creeperGroup.position.set(
+                this.creeperBasePos.x + shiverX,
+                this.creeperBasePos.y + jumpY,
+                this.creeperBasePos.z + shiverZ
+            );
+
+            // Анимация облачка реплик над головой
+            if (this.speechBubbleSprite) {
+                if (this.creeperState.bubbleTimer > 0) {
+                    this.creeperState.bubbleTimer -= delta;
+                    const opacity = Math.min(1.0, this.creeperState.bubbleTimer * 1.8);
+                    this.speechBubbleSprite.material.opacity = opacity;
+                    this.speechBubbleSprite.visible = true;
+                } else {
+                    this.speechBubbleSprite.visible = false;
+                    this.speechBubbleSprite.material.opacity = 0;
+                }
+            }
+        }
+
+        // 7. Рендеринг сцены
         this.renderer.render(this.scene, this.camera);
     }
 
