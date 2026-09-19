@@ -37,6 +37,7 @@ class ACScene {
             outdoorFan: null,
             outdoorFanRotor: null,
             indoorLouvers: null,
+            solidIndoorLouver: null,
             compressor: null,
             roomAirIn: [],
             roomAirOut: [],
@@ -451,8 +452,184 @@ class ACScene {
         grill.position.set(0, height / 2 - 0.01, -0.02);
         indoorGroup.add(grill);
 
+        // Реалистичный сплошной корпус Ballu Eco Smart
+        this.buildIndoorSolidCasing(indoorGroup, width, height, depth);
+
         this.indoorGroup = indoorGroup;
         this.scene.add(indoorGroup);
+    }
+
+    // ----------------------------------------------------
+    // РЕАЛИСТИЧНЫЙ КОРПУС BALLU ECO SMART (ВНУТРЕННИЙ БЛОК)
+    // ----------------------------------------------------
+    buildIndoorBalluFasciaTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1024;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+        this.indoorFasciaCanvas = canvas;
+        this.indoorFasciaCtx = ctx;
+
+        this.updateIndoorBalluDisplay();
+
+        const texture = new THREE.CanvasTexture(canvas);
+        this.indoorFasciaTexture = texture;
+    }
+
+    updateIndoorBalluDisplay() {
+        if (!this.indoorFasciaCtx) return;
+        const ctx = this.indoorFasciaCtx;
+        const w = 1024;
+        const h = 512;
+
+        ctx.clearRect(0, 0, w, h);
+
+        // Белоснежная глянцевая заливка передней панели
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+
+        // Градиент объема (сверху мягкая аэродинамическая тень, снизу полутень)
+        const topGrad = ctx.createLinearGradient(0, 0, 0, 60);
+        topGrad.addColorStop(0, 'rgba(0, 0, 0, 0.05)');
+        topGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = topGrad;
+        ctx.fillRect(0, 0, w, 60);
+
+        const botGrad = ctx.createLinearGradient(0, h - 50, 0, h);
+        botGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+        botGrad.addColorStop(1, 'rgba(0, 0, 0, 0.06)');
+        ctx.fillStyle = botGrad;
+        ctx.fillRect(0, h - 50, w, 50);
+
+        // Фаска стыка над нижней шторкой жалюзи
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(25, h - 35);
+        ctx.lineTo(w - 25, h - 35);
+        ctx.stroke();
+
+        // 1. Логотип Ballu по центру (как на референсе)
+        ctx.fillStyle = '#1e293b';
+        ctx.font = 'bold 44px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Ballu', w / 2, h / 2 + 10);
+
+        // Красный супрескрипт HOME
+        ctx.fillStyle = '#ef4444';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillText('HOME', w / 2 + 76, h / 2 - 6);
+
+        // 2. Надпись ECO SMART внизу слева
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('ECO SMART', 75, h - 65);
+
+        // 3. Надпись DC INVERTER внизу справа
+        ctx.textAlign = 'right';
+        ctx.fillText('DC INVERTER', w - 75, h - 65);
+
+        // 4. Скрытый цифровой LED-дисплей "Mirage"
+        // Просвечивает мягкими белыми/голубыми светодиодными цифрами сквозь панель
+        if (this.state.power) {
+            const tempStr = `${this.state.targetTemp}°`;
+            ctx.save();
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            ctx.font = 'bold 74px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.shadowColor = '#38bdf8';
+            ctx.shadowBlur = 18;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(tempStr, w - 85, h / 2 - 25);
+            ctx.restore();
+        }
+
+        if (this.indoorFasciaTexture) {
+            this.indoorFasciaTexture.needsUpdate = true;
+        }
+    }
+
+    buildIndoorSolidCasing(indoorGroup, width, height, depth) {
+        this.indoorSolidCasing = new THREE.Group();
+
+        // Создаем текстуру панели
+        this.buildIndoorBalluFasciaTexture();
+
+        const whitePlasticMat = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            roughness: 0.18,
+            metalness: 0.05
+        });
+
+        // 1. Задняя стенка корпуса
+        const backGeo = new THREE.BoxGeometry(width * 0.99, height * 0.98, 0.02);
+        const backMesh = new THREE.Mesh(backGeo, new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.5 }));
+        backMesh.position.set(0, 0, -depth / 2 + 0.01);
+        this.indoorSolidCasing.add(backMesh);
+
+        // 2. Верхняя крышка с решеткой забора воздуха
+        const topGeo = new THREE.BoxGeometry(width * 0.98, 0.02, depth * 0.88);
+        const topMesh = new THREE.Mesh(topGeo, whitePlasticMat);
+        topMesh.position.set(0, height / 2 - 0.01, -0.02);
+        this.indoorSolidCasing.add(topMesh);
+
+        for (let i = 0; i < 9; i++) {
+            const slotGeo = new THREE.BoxGeometry(width * 0.86, 0.005, 0.018);
+            const slotMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.6 });
+            const slot = new THREE.Mesh(slotGeo, slotMat);
+            slot.position.set(0, height / 2 + 0.002, -depth * 0.35 + i * 0.035);
+            this.indoorSolidCasing.add(slot);
+        }
+
+        // 3. Боковые обтекатели
+        const sideGeo = new THREE.BoxGeometry(0.02, height * 0.96, depth * 0.92);
+        const leftSide = new THREE.Mesh(sideGeo, whitePlasticMat);
+        leftSide.position.set(-width / 2 + 0.01, 0, 0);
+        const rightSide = new THREE.Mesh(sideGeo, whitePlasticMat);
+        rightSide.position.set(width / 2 - 0.01, 0, 0);
+        this.indoorSolidCasing.add(leftSide);
+        this.indoorSolidCasing.add(rightSide);
+
+        // 4. Дно корпуса
+        const botGeo = new THREE.BoxGeometry(width * 0.98, 0.02, depth * 0.82);
+        const botMesh = new THREE.Mesh(botGeo, whitePlasticMat);
+        botMesh.position.set(0, -height / 2 + 0.01, -0.04);
+        this.indoorSolidCasing.add(botMesh);
+
+        // 5. Выпуклая передняя панель с текстурой Ballu и скрытым LED-дисплеем
+        const frontGeo = new THREE.PlaneGeometry(width * 0.99, height * 0.78);
+        const frontMat = new THREE.MeshStandardMaterial({
+            map: this.indoorFasciaTexture,
+            roughness: 0.16,
+            metalness: 0.04
+        });
+        const frontMesh = new THREE.Mesh(frontGeo, frontMat);
+        frontMesh.position.set(0, 0.05, depth / 2 + 0.005);
+        frontMesh.rotation.x = -0.04;
+        this.indoorSolidCasing.add(frontMesh);
+
+        // 6. Подвижная моторизованная шторка жалюзи Ballu в нижней части
+        const louverPivot = new THREE.Group();
+        louverPivot.position.set(0, -height / 2 + 0.05, depth / 2 - 0.04);
+
+        const louverGeo = new THREE.BoxGeometry(width * 0.94, 0.018, 0.14);
+        const louverMat = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            roughness: 0.18,
+            metalness: 0.05
+        });
+        const louverMesh = new THREE.Mesh(louverGeo, louverMat);
+        louverMesh.position.set(0, 0, 0.07);
+        louverPivot.add(louverMesh);
+
+        this.indoorSolidCasing.add(louverPivot);
+        this.animatedObjects.solidIndoorLouver = louverPivot;
+
+        // По умолчанию видимость выключена (так как активен режим Рентген)
+        this.indoorSolidCasing.visible = !this.state.xray;
+        indoorGroup.add(this.indoorSolidCasing);
     }
 
     createDigitalDisplay(text) {
@@ -671,8 +848,257 @@ class ACScene {
         outdoorGroup.add(revGroup);
         this.reversingValveGroup = revGroup;
 
+        // Реалистичный сплошной корпус Ballu DC Inverter со спиральной решеткой
+        this.buildOutdoorSolidCasing(outdoorGroup, width, height, depth);
+
         this.outdoorGroup = outdoorGroup;
         this.scene.add(outdoorGroup);
+    }
+
+    // ----------------------------------------------------
+    // РЕАЛИСТИЧНЫЙ КОРПУС BALLU DC INVERTER (ВНЕШНИЙ БЛОК)
+    // ----------------------------------------------------
+    generateOutdoorBalluFrontTexture(width, height) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1024;
+        canvas.height = 716;
+        const ctx = canvas.getContext('2d');
+
+        // Фоновая эмаль белого металлического корпуса
+        ctx.fillStyle = '#f4f6f8';
+        ctx.fillRect(0, 0, 1024, 716);
+
+        // Декоративная штамповка по внешнему периметру
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(10, 10, 1004, 696);
+
+        // ----------------------------------------------------
+        // ЛЕВАЯ ЧАСТЬ: КРУГЛОЕ ВЫХОДНОЕ ОКНО СО СПИРАЛЬНОЙ РЕШЕТКОЙ
+        // ----------------------------------------------------
+        const cx = 389; // сопоставлено с положением вентилятора (-0.18м)
+        const cy = 358;
+        const radius = 265;
+        const hubRadius = 58;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.clip();
+
+        // Очищаем круг в прозрачность, чтобы видеть вращающийся 3D-пропеллер!
+        ctx.clearRect(cx - radius, cy - radius, radius * 2, radius * 2);
+
+        // Центральная круглая заглушка ступицы решетки
+        ctx.fillStyle = '#f4f6f8';
+        ctx.beginPath();
+        ctx.arc(cx, cy, hubRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        // Концентрические кольца жесткости решетки
+        const rings = [115, 175, 230, radius - 6];
+        rings.forEach((r, idx) => {
+            ctx.strokeStyle = idx === rings.length - 1 ? '#f4f6f8' : '#e2e8f0';
+            ctx.lineWidth = idx === rings.length - 1 ? 12 : 5;
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.stroke();
+        });
+
+        // 36 Спиральных аэродинамических ребер Ballu
+        ctx.strokeStyle = '#f8fafc';
+        ctx.lineWidth = 6;
+        for (let i = 0; i < 36; i++) {
+            const angle0 = (i / 36) * Math.PI * 2;
+            ctx.beginPath();
+            for (let step = 0; step <= 25; step++) {
+                const t = step / 25;
+                const r = hubRadius + t * (radius - 8 - hubRadius);
+                const a = angle0 + Math.pow(t, 1.25) * 1.32; // спиральный загиб
+                const px = cx + Math.cos(a) * r;
+                const py = cy + Math.sin(a) * r;
+                if (step === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+        }
+        ctx.restore();
+
+        // Внешний декоративный обод раструба
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // ----------------------------------------------------
+        // ПРАВАЯ ЧАСТЬ: ФИРМЕННЫЙ ШИЛЬДИК BALLU, ШТАМПОВКА И ИНВЕРТОР
+        // ----------------------------------------------------
+        // Выштампованная область справа
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.roundRect(690, 60, 300, 596, 24);
+        ctx.stroke();
+
+        // 1. Фирменный зеленый шильдик Ballu
+        const bx = 720, by = 90, bw = 240, bh = 140;
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(bx, by, bw, bh, 18);
+        ctx.clip();
+
+        // Изумрудный фон
+        ctx.fillStyle = '#009a44';
+        ctx.fillRect(bx, by, bw, bh);
+
+        // Салатовая диагональная полоса внизу
+        ctx.fillStyle = '#8dc63f';
+        ctx.beginPath();
+        ctx.moveTo(bx, by + bh);
+        ctx.lineTo(bx + bw, by + bh - 28);
+        ctx.lineTo(bx + bw, by + bh);
+        ctx.closePath();
+        ctx.fill();
+
+        // Белая надпись Ballu
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 64px -apple-system, BlinkMacSystemFont, "Arial Black", Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Ballu', bx + bw / 2, by + bh / 2 - 10);
+
+        ctx.font = 'bold 16px sans-serif';
+        ctx.fillText('®', bx + bw / 2 + 90, by + bh / 2 - 26);
+        ctx.restore();
+
+        // 2. Три горизонтальные рельефные полосы штамповки
+        const slots = [290, 350, 410];
+        slots.forEach(sy => {
+            ctx.fillStyle = '#e2e8f0';
+            ctx.beginPath();
+            ctx.roundRect(730, sy, 220, 22, 11);
+            ctx.fill();
+
+            // Тень и блик для 3D рельефа
+            ctx.fillStyle = '#cbd5e1';
+            ctx.beginPath();
+            ctx.roundRect(733, sy + 3, 214, 8, 4);
+            ctx.fill();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.roundRect(733, sy + 11, 214, 8, 4);
+            ctx.fill();
+        });
+
+        // 3. Надпись DC INVERTER
+        ctx.fillStyle = '#475569';
+        ctx.font = 'bold 30px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('DC INVERTER', 840, 525);
+
+        return new THREE.CanvasTexture(canvas);
+    }
+
+    buildOutdoorSolidCasing(outdoorGroup, width, height, depth) {
+        this.outdoorSolidCasing = new THREE.Group();
+
+        const frontTex = this.generateOutdoorBalluFrontTexture(width, height);
+
+        const metalWhiteMat = new THREE.MeshStandardMaterial({
+            color: 0xf3f5f8,
+            roughness: 0.38,
+            metalness: 0.15
+        });
+
+        // 1. Корпус-кожух (зад, бока, дно)
+        // Задняя панель
+        const backGeo = new THREE.BoxGeometry(width * 0.99, height * 0.98, 0.02);
+        const backMesh = new THREE.Mesh(backGeo, new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.6 }));
+        backMesh.position.set(0, 0, -depth / 2 + 0.01);
+        this.outdoorSolidCasing.add(backMesh);
+
+        // Левая стенка (забор воздуха конденсатора)
+        const leftGeo = new THREE.BoxGeometry(0.02, height * 0.98, depth * 0.98);
+        const leftMesh = new THREE.Mesh(leftGeo, metalWhiteMat);
+        leftMesh.position.set(-width / 2 + 0.01, 0, 0);
+        this.outdoorSolidCasing.add(leftMesh);
+
+        // Правая стенка
+        const rightGeo = new THREE.BoxGeometry(0.02, height * 0.98, depth * 0.98);
+        const rightMesh = new THREE.Mesh(rightGeo, metalWhiteMat);
+        rightMesh.position.set(width / 2 - 0.01, 0, 0);
+        this.outdoorSolidCasing.add(rightMesh);
+
+        // Дно
+        const botGeo = new THREE.BoxGeometry(width * 0.99, 0.02, depth * 0.98);
+        const botMesh = new THREE.Mesh(botGeo, metalWhiteMat);
+        botMesh.position.set(0, -height / 2 + 0.01, 0);
+        this.outdoorSolidCasing.add(botMesh);
+
+        // 2. Верхняя крышка с козырьком от дождя
+        const topGeo = new THREE.BoxGeometry(width + 0.04, 0.04, depth + 0.04);
+        const topMesh = new THREE.Mesh(topGeo, metalWhiteMat);
+        topMesh.position.set(0, height / 2 + 0.02, 0);
+        this.outdoorSolidCasing.add(topMesh);
+
+        // 3. Лицевая панель Ballu со спиральной решеткой и прозрачными прорезями
+        const frontGeo = new THREE.PlaneGeometry(width, height);
+        const frontMat = new THREE.MeshStandardMaterial({
+            map: frontTex,
+            transparent: true,
+            alphaTest: 0.2,
+            roughness: 0.35,
+            metalness: 0.12,
+            side: THREE.DoubleSide
+        });
+        const frontMesh = new THREE.Mesh(frontGeo, frontMat);
+        frontMesh.position.set(0, 0, depth / 2 + 0.005);
+        this.outdoorSolidCasing.add(frontMesh);
+
+        // 4. Боковой сервисный кожух вентилей (справа)
+        const shroudGroup = new THREE.Group();
+        shroudGroup.position.set(width / 2 + 0.07, -height * 0.18, depth * 0.14);
+
+        const shroudGeo = new THREE.BoxGeometry(0.14, 0.36, 0.26);
+        const shroudMat = new THREE.MeshStandardMaterial({
+            color: 0xf1f5f9,
+            roughness: 0.32,
+            metalness: 0.1
+        });
+        const shroudMesh = new THREE.Mesh(shroudGeo, shroudMat);
+        shroudGroup.add(shroudMesh);
+
+        // Скошенная нижняя кромка кожуха
+        const wedgeGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.26, 16);
+        wedgeGeo.rotateX(Math.PI / 2);
+        const wedgeMesh = new THREE.Mesh(wedgeGeo, shroudMat);
+        wedgeMesh.position.set(0, -0.18, 0);
+        shroudGroup.add(wedgeMesh);
+
+        this.outdoorSolidCasing.add(shroudGroup);
+
+        // 5. Нижние монтажные ножки (лапы)
+        const footGeo = new THREE.BoxGeometry(0.12, 0.05, depth + 0.08);
+        const footMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.7, roughness: 0.3 });
+        const padMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.9 });
+
+        [-0.42, 0.42].forEach(x => {
+            const foot = new THREE.Mesh(footGeo, footMat);
+            foot.position.set(x, -height / 2 - 0.025, 0);
+            const pad = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.015, 0.14), padMat);
+            pad.position.set(0, -0.03, 0);
+            foot.add(pad);
+            this.outdoorSolidCasing.add(foot);
+        });
+
+        // По умолчанию видимость выключена (так как активен режим Рентген)
+        this.outdoorSolidCasing.visible = !this.state.xray;
+        outdoorGroup.add(this.outdoorSolidCasing);
     }
 
     buildRealisticOutdoorFan(outdoorGroup, width, height, depth) {
@@ -743,6 +1169,7 @@ class ACScene {
         // Фронтальная защитная решетка (концентрические стальные кольца + спицы)
         const grillGroup = new THREE.Group();
         grillGroup.position.set(0, 0, 0.085);
+        this.outdoorFanWireGrill = grillGroup;
         const wireMat = new THREE.MeshStandardMaterial({
             color: 0x94a3b8,
             metalness: 0.85,
@@ -1655,6 +2082,9 @@ class ACScene {
         if (this.displayMesh) {
             this.displayMesh.visible = isOn;
         }
+
+        // Обновляем LED дисплей на корпусе Ballu Eco Smart
+        this.updateIndoorBalluDisplay();
     }
 
     setMode(mode) {
@@ -1662,6 +2092,7 @@ class ACScene {
         this.state.mode = mode;
         const color = mode === 'heat' ? '#ff7a00' : (mode === 'fan' ? '#10b981' : '#00e5ff');
         this.updateDisplayText(`${this.state.targetTemp}°C`, color);
+        this.updateIndoorBalluDisplay();
 
         // Обновляем цвета трубок и хладагента
         this.updateMaterialColors();
@@ -1680,6 +2111,9 @@ class ACScene {
         this.state.targetTemp = Math.max(16, Math.min(30, temp));
         const color = this.state.mode === 'heat' ? '#ff7a00' : '#00e5ff';
         this.updateDisplayText(`${this.state.targetTemp}°C`, color);
+
+        // Обновляем LED дисплей на корпусе Ballu Eco Smart
+        this.updateIndoorBalluDisplay();
 
         // Регулировка скорости компрессора в зависимости от разницы температур
         const diff = Math.abs(this.state.targetTemp - 25);
@@ -1707,16 +2141,27 @@ class ACScene {
 
     toggleXray() {
         this.state.xray = !this.state.xray;
-        const targetOpacity = this.state.xray ? 0.32 : 0.95;
-        const targetRoughness = this.state.xray ? 0.15 : 0.5;
-        const targetTransmission = this.state.xray ? 0.75 : 0.05;
 
-        this.translucentMaterials.forEach(mat => {
-            mat.opacity = targetOpacity;
-            mat.roughness = targetRoughness;
-            mat.transmission = targetTransmission;
-            mat.needsUpdate = true;
-        });
+        // Показ/скрытие реалистичных сплошных корпусов Ballu
+        if (this.indoorSolidCasing) {
+            this.indoorSolidCasing.visible = !this.state.xray;
+        }
+        if (this.outdoorSolidCasing) {
+            this.outdoorSolidCasing.visible = !this.state.xray;
+        }
+
+        // Внутренний полупрозрачный каркас хай-тек (виден в режиме Рентген)
+        if (this.indoorCaseMesh) {
+            this.indoorCaseMesh.visible = this.state.xray;
+        }
+        if (this.outdoorCaseMesh) {
+            this.outdoorCaseMesh.visible = this.state.xray;
+        }
+
+        // Защитная проволочная решетка вентилятора (скрываем в режиме корпуса, так как там спиральная решетка на панели)
+        if (this.outdoorFanWireGrill) {
+            this.outdoorFanWireGrill.visible = this.state.xray;
+        }
 
         return this.state.xray;
     }
@@ -1834,9 +2279,12 @@ class ACScene {
             this.animatedObjects.outdoorFanRotor.rotation.z += spinDelta * this.physics.fanRpmCurrent;
         }
 
-        // Положение направляющей шторки жалюзи
+        // Положение направляющей шторки жалюзи (на хай-тек модели и на корпусе Ballu)
         if (this.animatedObjects.indoorLouvers) {
             this.animatedObjects.indoorLouvers.rotation.x = this.physics.louverAngle;
+        }
+        if (this.animatedObjects.solidIndoorLouver) {
+            this.animatedObjects.solidIndoorLouver.rotation.x = this.physics.louverAngle;
         }
 
         // Вибрация компрессора (пропорциональна текущей скорости)
