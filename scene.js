@@ -110,6 +110,7 @@ class ACScene {
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2();
         window.addEventListener('resize', () => this.onWindowResize());
+        window.addEventListener('orientationchange', () => setTimeout(() => this.onWindowResize(), 150));
         this.renderer.domElement.addEventListener('pointerdown', (e) => this.onPointerDown(e));
         this.renderer.domElement.addEventListener('pointermove', (e) => this.onPointerMove(e));
 

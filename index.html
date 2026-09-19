@@ -2,19 +2,32 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
     <title>Как работает кондиционер: Секреты холода | 3D Лаборатория</title>
-    <!-- Поддержка iPad / iOS Web App -->
+    <!-- Поддержка iPad / iOS Web App (PWA) -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Кондиционер 3D">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#0a0e17">
-    <link rel="stylesheet" href="style.css?v=3">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+    <link rel="stylesheet" href="style.css?v=4">
     <!-- Three.js и OrbitControls -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head>
 <body>
+    <!-- Оверлей для поворота экрана на iPad в Landscape -->
+    <div id="orientation-warning" class="orientation-warning">
+        <div class="orientation-card">
+            <div class="orientation-icon">🔄📱</div>
+            <h2>Поверните iPad горизонтально</h2>
+            <p>Для наилучшего 3D-обзора сплит-системы и удобного управления поверните устройство в альбомный режим.</p>
+        </div>
+    </div>
+
     <!-- 3D Canvas Контейнер -->
     <div id="canvas-container"></div>
 
@@ -144,9 +157,9 @@
     </div>
 
     <!-- Подключение скриптов приложения -->
-    <script src="sound.js?v=3"></script>
-    <script src="scene.js?v=3"></script>
-    <script src="app.js?v=3"></script>
+    <script src="sound.js?v=4"></script>
+    <script src="scene.js?v=4"></script>
+    <script src="app.js?v=4"></script>
     <script>
         // Регистрация Service Worker для автономной работы на iPad с принудительным обновлением кэша
         if ('serviceWorker' in navigator) {

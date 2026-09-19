@@ -25,6 +25,8 @@ body, html {
     width: 100%;
     height: 100%;
     overflow: hidden;
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
     background-color: var(--bg-dark);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     color: var(--text-primary);
@@ -43,9 +45,9 @@ body, html {
 /* Верхняя шапка */
 .header-bar {
     position: absolute;
-    top: 16px;
-    left: 20px;
-    right: 20px;
+    top: max(16px, env(safe-area-inset-top));
+    left: max(20px, env(safe-area-inset-left));
+    right: max(20px, env(safe-area-inset-right));
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -126,8 +128,8 @@ body, html {
 /* Интерактивный пульт кондиционера (Справа внизу) */
 .remote-control {
     position: absolute;
-    bottom: 24px;
-    right: 24px;
+    bottom: max(24px, calc(12px + env(safe-area-inset-bottom)));
+    right: max(24px, env(safe-area-inset-right));
     width: 220px;
     background: rgba(15, 23, 42, 0.88);
     backdrop-filter: blur(20px);
@@ -388,8 +390,8 @@ body, html {
 /* Легенда цветов (Слева внизу) */
 .flow-legend {
     position: absolute;
-    bottom: 24px;
-    left: 24px;
+    bottom: max(24px, calc(12px + env(safe-area-inset-bottom)));
+    left: max(24px, env(safe-area-inset-left));
     background: var(--panel-bg);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
@@ -530,7 +532,7 @@ body, html {
 /* Нижняя панель быстрого выбора узлов */
 .nodes-bar {
     position: absolute;
-    bottom: 24px;
+    bottom: max(24px, calc(12px + env(safe-area-inset-bottom)));
     left: 50%;
     transform: translateX(-50%);
     display: flex;
@@ -574,8 +576,8 @@ body, html {
 /* Карточка объяснения узла (Всплывающее окно) */
 .node-card {
     position: absolute;
-    top: 86px;
-    right: 24px;
+    top: max(86px, calc(70px + env(safe-area-inset-top)));
+    right: max(24px, env(safe-area-inset-right));
     width: 340px;
     background: rgba(15, 23, 42, 0.94);
     backdrop-filter: blur(24px);
@@ -664,15 +666,84 @@ body, html {
     box-shadow: 0 4px 16px rgba(14, 165, 233, 0.4);
 }
 
-/* Адаптивность для планшетов iPad и мобильных экранов */
-@media (max-width: 1024px) {
+button, .action-btn, .node-pill, .r-btn {
+    touch-action: manipulation;
+}
+
+/* Оверлей предупреждения об ориентации (iPad Portrait) */
+.orientation-warning {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(10, 14, 23, 0.96);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    z-index: 99999;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 30px;
+    box-sizing: border-box;
+}
+
+@media (orientation: portrait) {
+    .orientation-warning {
+        display: flex;
+    }
+}
+
+.orientation-card {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 28px;
+    padding: 36px 30px;
+    max-width: 360px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), 0 0 30px rgba(0, 229, 255, 0.2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.orientation-icon {
+    font-size: 3.6rem;
+    margin-bottom: 16px;
+    display: inline-block;
+    animation: rotateDevice 2.5s infinite ease-in-out;
+}
+
+@keyframes rotateDevice {
+    0%, 20% { transform: rotate(0deg); }
+    50%, 75% { transform: rotate(-90deg); }
+    100% { transform: rotate(0deg); }
+}
+
+.orientation-card h2 {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+}
+
+.orientation-card p {
+    font-size: 0.92rem;
+    color: var(--text-secondary);
+    line-height: 1.55;
+}
+
+/* Адаптивность для планшетов iPad и экранов в Landscape */
+@media (max-width: 1180px) and (orientation: landscape), (max-height: 850px) and (orientation: landscape) {
     .header-bar {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 8px;
-        top: 12px;
-        left: 14px;
-        right: 14px;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        top: max(10px, env(safe-area-inset-top));
+        left: max(14px, env(safe-area-inset-left));
+        right: max(14px, env(safe-area-inset-right));
     }
     .title-box {
         padding: 8px 16px;
@@ -680,8 +751,11 @@ body, html {
     .title-box h1 {
         font-size: 1.05rem;
     }
+    .title-box p {
+        font-size: 0.78rem;
+    }
     .quick-actions {
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
         gap: 6px;
     }
     .action-btn {
@@ -689,35 +763,35 @@ body, html {
         font-size: 0.8rem;
     }
     .nodes-bar {
-        max-width: 92vw;
+        max-width: 90vw;
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
-        bottom: 16px;
+        bottom: max(14px, calc(8px + env(safe-area-inset-bottom)));
         padding: 6px 8px;
     }
     .nodes-bar::-webkit-scrollbar {
         display: none;
     }
     .flow-legend {
-        max-width: 240px;
+        max-width: 250px;
         padding: 10px 14px;
         font-size: 0.72rem;
-        bottom: 72px;
-        left: 14px;
+        bottom: max(14px, calc(8px + env(safe-area-inset-bottom)));
+        left: max(14px, env(safe-area-inset-left));
     }
     .flow-legend.collapsed {
-        width: 46px;
-        height: 46px;
+        width: 48px;
+        height: 48px;
         padding: 0;
-        bottom: 72px;
-        left: 14px;
+        bottom: max(14px, calc(8px + env(safe-area-inset-bottom)));
+        left: max(14px, env(safe-area-inset-left));
     }
     .remote-control {
-        bottom: 16px;
-        right: 16px;
+        bottom: max(14px, calc(8px + env(safe-area-inset-bottom)));
+        right: max(14px, env(safe-area-inset-right));
         width: 195px;
-        padding: 14px;
+        padding: 13px;
     }
     .remote-control.collapsed {
         width: 50px;
@@ -725,7 +799,13 @@ body, html {
         padding: 0;
     }
     .temp-digits {
-        font-size: 2.3rem;
+        font-size: 2.2rem;
+    }
+    .node-card {
+        top: max(72px, calc(56px + env(safe-area-inset-top)));
+        right: max(14px, env(safe-area-inset-right));
+        width: 320px;
+        padding: 16px;
     }
 }
 

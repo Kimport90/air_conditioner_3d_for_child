@@ -1,12 +1,16 @@
-// sw.js - Service Worker v3 с поддержкой мгновенных обновлений (Network-First)
-const CACHE_NAME = 'ac-3d-cache-v3';
+// sw.js - Service Worker v4 с поддержкой iPad PWA и мгновенных обновлений (Network-First)
+const CACHE_NAME = 'ac-3d-cache-v4';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
-    './style.css?v=3',
-    './sound.js?v=3',
-    './scene.js?v=3',
-    './app.js?v=3',
+    './manifest.json',
+    './style.css?v=4',
+    './sound.js?v=4',
+    './scene.js?v=4',
+    './app.js?v=4',
+    './icons/apple-touch-icon.png',
+    './icons/icon-192.png',
+    './icons/icon-512.png',
     'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
     'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js'
 ];
