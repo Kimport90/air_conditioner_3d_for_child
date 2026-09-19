@@ -254,6 +254,35 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // 9. Сворачивание и разворачивание легенды цикла хладагента
+    const legendEl = document.getElementById('flow-legend');
+    const legendCollapseBtn = document.getElementById('btn-legend-collapse');
+
+    function toggleLegendCollapse(forceState) {
+        if (!legendEl) return;
+        const isCollapsed = forceState !== undefined ? forceState : !legendEl.classList.contains('collapsed');
+        legendEl.classList.toggle('collapsed', isCollapsed);
+        if (window.soundEngine) {
+            window.soundEngine.playRemoteBeep();
+        }
+    }
+
+    if (legendCollapseBtn) {
+        legendCollapseBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleLegendCollapse(true);
+        });
+    }
+
+    if (legendEl) {
+        legendEl.addEventListener('click', (e) => {
+            if (legendEl.classList.contains('collapsed')) {
+                e.stopPropagation();
+                toggleLegendCollapse(false);
+            }
+        });
+    }
+
     // Первоначальное обновление интерфейса
     updateRemoteUI();
 });

@@ -1,12 +1,12 @@
-// sw.js - Service Worker v2 с поддержкой мгновенных обновлений (Network-First)
-const CACHE_NAME = 'ac-3d-cache-v2';
+// sw.js - Service Worker v3 с поддержкой мгновенных обновлений (Network-First)
+const CACHE_NAME = 'ac-3d-cache-v3';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
-    './style.css?v=2',
-    './sound.js?v=2',
-    './scene.js?v=2',
-    './app.js?v=2',
+    './style.css?v=3',
+    './sound.js?v=3',
+    './scene.js?v=3',
+    './app.js?v=3',
     'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
     'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js'
 ];

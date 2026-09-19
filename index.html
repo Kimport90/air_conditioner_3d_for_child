@@ -9,7 +9,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Кондиционер 3D">
     <meta name="theme-color" content="#0a0e17">
-    <link rel="stylesheet" href="style.css?v=2">
+    <link rel="stylesheet" href="style.css?v=3">
     <!-- Three.js и OrbitControls -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -41,23 +41,33 @@
     </div>
 
     <!-- Легенда потоков (Слева внизу) -->
-    <div class="flow-legend">
-        <div class="legend-title">🔬 Цикл хладагента (Фреона):</div>
-        <div class="legend-item">
-            <div class="legend-dot dot-hot"></div>
-            <span>Горячий сжатый газ (после компрессора, +80°C)</span>
+    <div id="flow-legend" class="flow-legend">
+        <!-- Виджет в свернутом виде (круглая кнопка) -->
+        <div id="legend-collapsed-badge" class="legend-collapsed-badge" title="Развернуть цикл хладагента">
+            <span class="collapsed-icon">🔬</span>
         </div>
-        <div class="legend-item">
-            <div class="legend-dot dot-warm"></div>
-            <span>Теплая сконденсированная жидкость</span>
-        </div>
-        <div class="legend-item">
-            <div class="legend-dot dot-cold"></div>
-            <span>Ледяная смесь после клапана ТРВ (-5°C)</span>
-        </div>
-        <div class="legend-item">
-            <div class="legend-dot dot-vapor"></div>
-            <span>Холодный пар, забравший тепло из комнаты</span>
+
+        <div class="legend-inner">
+            <div class="legend-header">
+                <div class="legend-title">🔬 Цикл хладагента (Фреона):</div>
+                <button id="btn-legend-collapse" class="btn-collapse-legend" title="Свернуть цикл хладагента">▾</button>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot dot-hot"></div>
+                <span>Горячий сжатый газ (после компрессора, +80°C)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot dot-warm"></div>
+                <span>Теплая сконденсированная жидкость</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot dot-cold"></div>
+                <span>Ледяная смесь после клапана ТРВ (-5°C)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot dot-vapor"></div>
+                <span>Холодный пар, забравший тепло из комнаты</span>
+            </div>
         </div>
     </div>
 
@@ -134,9 +144,9 @@
     </div>
 
     <!-- Подключение скриптов приложения -->
-    <script src="sound.js?v=2"></script>
-    <script src="scene.js?v=2"></script>
-    <script src="app.js?v=2"></script>
+    <script src="sound.js?v=3"></script>
+    <script src="scene.js?v=3"></script>
+    <script src="app.js?v=3"></script>
     <script>
         // Регистрация Service Worker для автономной работы на iPad с принудительным обновлением кэша
         if ('serviceWorker' in navigator) {
