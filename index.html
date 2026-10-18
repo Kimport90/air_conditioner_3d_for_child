@@ -13,7 +13,7 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
-    <link rel="stylesheet" href="style.css?v=4">
+    <link rel="stylesheet" href="style.css?v=5">
     <!-- Three.js и OrbitControls -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -38,6 +38,16 @@
             <p>Интерактивный 3D-разрез сплит-системы • Вращай мышкой, чтобы рассмотреть!</p>
         </div>
         <div class="quick-actions">
+            <!-- Селектор модели кондиционера -->
+            <div class="model-select-container" title="Выбор модели кондиционера">
+                <span class="model-select-icon">🏷️</span>
+                <select id="model-select" class="model-select-dropdown" aria-label="Выбор модели кондиционера">
+                    <option value="lg">LG Dual Inverter</option>
+                    <option value="samsung">Samsung WindFree</option>
+                    <option value="kentatsu">Kentatsu Yuki</option>
+                    <option value="ballu">Ballu Eco Smart</option>
+                </select>
+            </div>
             <button id="btn-sound-toggle" class="action-btn active" title="Включить или выключить звук">
                 🔊 <span>Звук: Вкл</span>
             </button>
@@ -114,7 +124,7 @@
         <div class="remote-inner">
             <div class="remote-header">
                 <div class="remote-header-left">
-                    <span>AIR REMOTE</span>
+                    <span id="remote-brand-label">LG DUAL INVERTER</span>
                     <div id="power-ind" class="power-indicator" title="Индикатор питания"></div>
                 </div>
                 <button id="btn-remote-collapse" class="btn-collapse-remote" title="Свернуть пульт">▾</button>
@@ -157,9 +167,9 @@
     </div>
 
     <!-- Подключение скриптов приложения -->
-    <script src="sound.js?v=4"></script>
-    <script src="scene.js?v=4"></script>
-    <script src="app.js?v=4"></script>
+    <script src="sound.js?v=5"></script>
+    <script src="scene.js?v=5"></script>
+    <script src="app.js?v=5"></script>
     <script>
         // Регистрация Service Worker для автономной работы на iPad с принудительным обновлением кэша
         if ('serviceWorker' in navigator) {

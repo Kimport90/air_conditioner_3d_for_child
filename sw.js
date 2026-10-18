@@ -1,13 +1,16 @@
-// sw.js - Service Worker v4 с поддержкой iPad PWA и мгновенных обновлений (Network-First)
-const CACHE_NAME = 'ac-3d-cache-v4';
+// sw.js - Service Worker v5 с поддержкой выбора моделей (LG, Samsung, Kentatsu, Ballu) и PWA
+const CACHE_NAME = 'ac-3d-cache-v5';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
     './manifest.json',
-    './style.css?v=4',
-    './sound.js?v=4',
-    './scene.js?v=4',
-    './app.js?v=4',
+    './style.css?v=5',
+    './sound.js?v=5',
+    './scene.js?v=5',
+    './app.js?v=5',
+    './conditioner/lg.jpg',
+    './conditioner/samsung.jpg',
+    './conditioner/kentatsu.jpg',
     './icons/apple-touch-icon.png',
     './icons/icon-192.png',
     './icons/icon-512.png',

@@ -125,6 +125,59 @@ body, html {
     color: var(--accent-cyan);
 }
 
+/* Селектор модели кондиционера */
+.model-select-container {
+    background: var(--panel-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.model-select-container:hover {
+    background: rgba(30, 41, 59, 0.95);
+    border-color: var(--accent-cyan);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 229, 255, 0.25);
+}
+
+.model-select-icon {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.model-select-dropdown {
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+    padding: 10px 24px 10px 4px;
+    font-family: inherit;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2338bdf8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right center;
+    background-size: 14px;
+}
+
+.model-select-dropdown option {
+    background-color: #0f172a;
+    color: #f8fafc;
+    padding: 8px;
+    font-size: 0.88rem;
+}
+
 /* Интерактивный пульт кондиционера (Справа внизу) */
 .remote-control {
     position: absolute;
@@ -757,6 +810,15 @@ button, .action-btn, .node-pill, .r-btn {
     .quick-actions {
         flex-wrap: nowrap;
         gap: 6px;
+    }
+    .model-select-container {
+        padding: 0 8px;
+        gap: 4px;
+    }
+    .model-select-dropdown {
+        padding: 6px 18px 6px 2px;
+        font-size: 0.78rem;
+        background-size: 12px;
     }
     .action-btn {
         padding: 8px 12px;

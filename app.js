@@ -4,6 +4,41 @@ document.addEventListener('DOMContentLoaded', () => {
     const container = document.getElementById('canvas-container');
     const acScene = new ACScene(container);
 
+    // Ссылки на селектор модели и пульт
+    const modelSelect = document.getElementById('model-select');
+    const remoteBrandLabel = document.getElementById('remote-brand-label');
+
+    const modelBrandNames = {
+        lg: 'LG DUAL INVERTER',
+        samsung: 'SAMSUNG WINDFREE',
+        kentatsu: 'KENTATSU YUKI',
+        ballu: 'BALLU ECO SMART'
+    };
+
+    function updateRemoteBrand(modelId) {
+        if (remoteBrandLabel) {
+            remoteBrandLabel.textContent = modelBrandNames[modelId] || 'AIR REMOTE';
+        }
+    }
+
+    // Инициализация выбранной модели (по умолчанию LG или сохраненная из localStorage)
+    const initialModel = localStorage.getItem('ac_selected_model') || 'lg';
+    if (modelSelect) {
+        modelSelect.value = initialModel;
+        modelSelect.addEventListener('change', (e) => {
+            const selectedModel = e.target.value;
+            localStorage.setItem('ac_selected_model', selectedModel);
+            if (window.soundEngine) {
+                window.soundEngine.playRemoteBeep();
+            }
+            acScene.setModel(selectedModel);
+            updateRemoteBrand(selectedModel);
+        });
+    }
+
+    acScene.setModel(initialModel);
+    updateRemoteBrand(initialModel);
+
     // Ссылки на элементы интерфейса пульта
     const pwrBtn = document.getElementById('btn-power');
     const pwrIndicator = document.getElementById('power-ind');

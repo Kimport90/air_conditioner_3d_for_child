@@ -1,10 +1,65 @@
 // scene.js - 3D Визуализация Сплит-системы Кондиционера на Three.js
 
+const AC_MODELS = {
+    lg: {
+        id: 'lg',
+        name: 'LG Dual Inverter',
+        brand: 'LG',
+        remoteName: 'LG DUAL INVERTER',
+        fanDirection: 1, // CCW (против часовой стрелки)
+        indoorPlasticColor: 0x2b313a, // Темный графит / антрацит
+        indoorPlasticRoughness: 0.25,
+        indoorPlasticMetalness: 0.15,
+        indoorLouverColor: 0x242a32,
+        indoorSlotColor: 0x475569
+    },
+    samsung: {
+        id: 'samsung',
+        name: 'Samsung WindFree',
+        brand: 'Samsung',
+        remoteName: 'SAMSUNG WINDFREE',
+        fanDirection: -1, // CW (по часовой стрелке)
+        indoorPlasticColor: 0x181a1d, // Глубокий матовый черный WindFree
+        indoorPlasticRoughness: 0.35,
+        indoorPlasticMetalness: 0.08,
+        indoorLouverColor: 0x141618,
+        indoorSlotColor: 0x334155
+    },
+    kentatsu: {
+        id: 'kentatsu',
+        name: 'Kentatsu Yuki',
+        brand: 'Kentatsu',
+        remoteName: 'KENTATSU YUKI',
+        fanDirection: 1, // CCW (против часовой стрелки)
+        indoorPlasticColor: 0xffffff, // Белоснежный глянец
+        indoorPlasticRoughness: 0.18,
+        indoorPlasticMetalness: 0.05,
+        indoorLouverColor: 0xffffff,
+        indoorSlotColor: 0x94a3b8
+    },
+    ballu: {
+        id: 'ballu',
+        name: 'Ballu Eco Smart',
+        brand: 'Ballu',
+        remoteName: 'BALLU ECO SMART',
+        fanDirection: 1, // CCW (против часовой стрелки)
+        indoorPlasticColor: 0xffffff, // Белоснежный
+        indoorPlasticRoughness: 0.18,
+        indoorPlasticMetalness: 0.05,
+        indoorLouverColor: 0xffffff,
+        indoorSlotColor: 0x94a3b8
+    }
+};
+
 class ACScene {
     constructor(container) {
         this.container = container;
         this.width = container.clientWidth || window.innerWidth;
         this.height = container.clientHeight || window.innerHeight;
+
+        // Текущая выбранная модель кондиционера
+        this.currentModelId = 'lg';
+        this.currentModel = AC_MODELS['lg'];
 
         // Состояние системы
         this.state = {
@@ -461,9 +516,13 @@ class ACScene {
     }
 
     // ----------------------------------------------------
-    // РЕАЛИСТИЧНЫЙ КОРПУС BALLU ECO SMART (ВНУТРЕННИЙ БЛОК)
+    // РЕАЛИСТИЧНЫЙ КОРПУС ВНУТРЕННЕГО БЛОКА (LG, SAMSUNG, KENTATSU, BALLU)
     // ----------------------------------------------------
     buildIndoorBalluFasciaTexture() {
+        this.buildIndoorFasciaTexture();
+    }
+
+    buildIndoorFasciaTexture() {
         const canvas = document.createElement('canvas');
         canvas.width = 1024;
         canvas.height = 512;
@@ -471,80 +530,298 @@ class ACScene {
         this.indoorFasciaCanvas = canvas;
         this.indoorFasciaCtx = ctx;
 
-        this.updateIndoorBalluDisplay();
+        this.updateIndoorFasciaDisplay();
 
         const texture = new THREE.CanvasTexture(canvas);
         this.indoorFasciaTexture = texture;
     }
 
+    drawKentatsuIcon(ctx, cx, cy, radius = 18) {
+        ctx.save();
+        ctx.fillStyle = '#d9252a';
+        const petalSize = radius * 0.45;
+        const dist = radius * 0.70;
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            const px = cx + Math.cos(angle) * dist;
+            const py = cy + Math.sin(angle) * dist;
+            ctx.save();
+            ctx.translate(px, py);
+            ctx.rotate(angle);
+            ctx.fillRect(-petalSize / 2, -petalSize / 2, petalSize, petalSize);
+            ctx.restore();
+        }
+        ctx.restore();
+    }
+
     updateIndoorBalluDisplay() {
+        this.updateIndoorFasciaDisplay();
+    }
+
+    updateIndoorFasciaDisplay() {
         if (!this.indoorFasciaCtx) return;
         const ctx = this.indoorFasciaCtx;
         const w = 1024;
         const h = 512;
+        const modelId = this.currentModelId || 'lg';
 
         ctx.clearRect(0, 0, w, h);
 
-        // Белоснежная глянцевая заливка передней панели
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, w, h);
+        if (modelId === 'lg') {
+            // ТЕМНЫЙ ГРАФИТ LG DUAL INVERTER
+            const grad = ctx.createLinearGradient(0, 0, 0, h);
+            grad.addColorStop(0, '#2b313a');
+            grad.addColorStop(0.5, '#353c46');
+            grad.addColorStop(1, '#22272e');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, w, h);
 
-        // Градиент объема (сверху мягкая аэродинамическая тень, снизу полутень)
-        const topGrad = ctx.createLinearGradient(0, 0, 0, 60);
-        topGrad.addColorStop(0, 'rgba(0, 0, 0, 0.05)');
-        topGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        ctx.fillStyle = topGrad;
-        ctx.fillRect(0, 0, w, 60);
+            // Мягкий горизонтальный металлический блик
+            const hlGrad = ctx.createLinearGradient(0, 120, 0, 220);
+            hlGrad.addColorStop(0, 'rgba(255, 255, 255, 0)');
+            hlGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.06)');
+            hlGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            ctx.fillStyle = hlGrad;
+            ctx.fillRect(0, 120, w, 100);
 
-        const botGrad = ctx.createLinearGradient(0, h - 50, 0, h);
-        botGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-        botGrad.addColorStop(1, 'rgba(0, 0, 0, 0.06)');
-        ctx.fillStyle = botGrad;
-        ctx.fillRect(0, h - 50, w, 50);
+            // Тонкая разделительная фаска над шторкой
+            ctx.strokeStyle = '#1a1f26';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(25, h - 35);
+            ctx.lineTo(w - 25, h - 35);
+            ctx.stroke();
 
-        // Фаска стыка над нижней шторкой жалюзи
-        ctx.strokeStyle = '#e2e8f0';
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.moveTo(25, h - 35);
-        ctx.lineTo(w - 25, h - 35);
-        ctx.stroke();
+            // Эмблема LG по центру (круг с L-G лицом)
+            const cx = w / 2;
+            const cy = h / 2 - 12;
+            const r = 24;
 
-        // 1. Логотип Ballu по центру (как на референсе)
-        ctx.fillStyle = '#1e293b';
-        ctx.font = 'bold 44px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('Ballu', w / 2, h / 2 + 10);
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.stroke();
 
-        // Красный супрескрипт HOME
-        ctx.fillStyle = '#ef4444';
-        ctx.font = 'bold 12px sans-serif';
-        ctx.fillText('HOME', w / 2 + 76, h / 2 - 6);
+            // G контур внутри
+            ctx.beginPath();
+            ctx.arc(cx, cy, r * 0.65, -Math.PI * 0.75, Math.PI * 0.65);
+            ctx.stroke();
 
-        // 2. Надпись ECO SMART внизу слева
-        ctx.fillStyle = '#94a3b8';
-        ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, sans-serif';
-        ctx.textAlign = 'left';
-        ctx.fillText('ECO SMART', 75, h - 65);
+            // L носик внутри
+            ctx.beginPath();
+            ctx.moveTo(cx - 3, cy - 8);
+            ctx.lineTo(cx - 3, cy + 4);
+            ctx.lineTo(cx + 5, cy + 4);
+            ctx.stroke();
 
-        // 3. Надпись DC INVERTER внизу справа
-        ctx.textAlign = 'right';
-        ctx.fillText('DC INVERTER', w - 75, h - 65);
+            // Глаз-точка
+            ctx.fillStyle = '#94a3b8';
+            ctx.beginPath();
+            ctx.arc(cx - 8, cy - 4, 2.2, 0, Math.PI * 2);
+            ctx.fill();
 
-        // 4. Скрытый цифровой LED-дисплей "Mirage"
-        // Просвечивает мягкими белыми/голубыми светодиодными цифрами сквозь панель
-        if (this.state.power) {
-            const tempStr = `${this.state.targetTemp}°`;
-            ctx.save();
+            // Надпись LG под эмблемой
+            ctx.fillStyle = '#cbd5e1';
+            ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText('LG', cx, cy + r + 6);
+
+            // Надпись DUAL Inverter справа внизу
+            ctx.fillStyle = '#64748b';
+            ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, sans-serif';
             ctx.textAlign = 'right';
-            ctx.textBaseline = 'middle';
-            ctx.font = 'bold 74px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-            ctx.shadowColor = '#38bdf8';
-            ctx.shadowBlur = 18;
+            ctx.fillText('DUAL Inverter', w - 80, h - 65);
+
+            // LED Дисплей (светящиеся голубые цифры температуры)
+            if (this.state.power) {
+                const tempStr = `${this.state.targetTemp}°`;
+                ctx.save();
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                ctx.font = 'bold 74px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                ctx.shadowColor = '#00e5ff';
+                ctx.shadowBlur = 20;
+                ctx.fillStyle = '#38bdf8';
+                ctx.fillText(tempStr, w - 85, h / 2 - 25);
+                ctx.restore();
+            }
+
+        } else if (modelId === 'samsung') {
+            // ГЛУБОКИЙ ЧЕРНЫЙ МАТОВЫЙ SAMSUNG WINDFREE
+            const grad = ctx.createLinearGradient(0, 0, 0, h);
+            grad.addColorStop(0, '#14171a');
+            grad.addColorStop(0.5, '#1d2126');
+            grad.addColorStop(1, '#111316');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, w, h);
+
+            // Микроперфорация WindFree (сетка микроотверстий)
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+            for (let py = 45; py < h - 50; py += 12) {
+                const rowShift = ((py / 12) % 2 === 0) ? 0 : 6;
+                for (let px = 40 + rowShift; px < w - 40; px += 12) {
+                    ctx.beginPath();
+                    ctx.arc(px, py, 1.4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            // Фаска над нижней шторкой
+            ctx.strokeStyle = '#0f1114';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(25, h - 35);
+            ctx.lineTo(w - 25, h - 35);
+            ctx.stroke();
+
+            // Логотип SAMSUNG вверху слева
+            ctx.fillStyle = '#cbd5e1';
+            ctx.font = '900 24px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.fillText('SAMSUNG', 70, 50);
+
+            // Надпись WindFree™ вверху справа
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText('WindFree™', w - 70, 52);
+
+            // Цифровой LED дисплей Samsung на затемненной мини-панели внизу справа
+            if (this.state.power) {
+                const tempStr = `${this.state.targetTemp}°`;
+                const bx = w - 165, by = h - 110, bw = 100, bh = 50;
+                ctx.fillStyle = '#0a0c0e';
+                ctx.beginPath();
+                ctx.roundRect(bx, by, bw, bh, 8);
+                ctx.fill();
+                ctx.strokeStyle = '#272d36';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                ctx.save();
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.font = 'bold 34px -apple-system, BlinkMacSystemFont, "Segoe UI", monospace';
+                ctx.shadowColor = '#00e5ff';
+                ctx.shadowBlur = 14;
+                ctx.fillStyle = '#38bdf8';
+                ctx.fillText(tempStr, bx + bw / 2, by + bh / 2 + 1);
+                ctx.restore();
+            }
+
+        } else if (modelId === 'kentatsu') {
+            // БЕЛОСНЕЖНЫЙ КОРПУС KENTATSU YUKI
             ctx.fillStyle = '#ffffff';
-            ctx.fillText(tempStr, w - 85, h / 2 - 25);
-            ctx.restore();
+            ctx.fillRect(0, 0, w, h);
+
+            const topGrad = ctx.createLinearGradient(0, 0, 0, 60);
+            topGrad.addColorStop(0, 'rgba(0, 0, 0, 0.05)');
+            topGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = topGrad;
+            ctx.fillRect(0, 0, w, 60);
+
+            const botGrad = ctx.createLinearGradient(0, h - 50, 0, h);
+            botGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+            botGrad.addColorStop(1, 'rgba(0, 0, 0, 0.05)');
+            ctx.fillStyle = botGrad;
+            ctx.fillRect(0, h - 50, w, 50);
+
+            // Тонкая фаска
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(25, h - 35);
+            ctx.lineTo(w - 25, h - 35);
+            ctx.stroke();
+
+            // Эмблема Kentatsu (красная 8-лепестковая снежинка) + надпись
+            const kx = 100, ky = h - 68;
+            this.drawKentatsuIcon(ctx, kx, ky, 18);
+
+            ctx.fillStyle = '#1e293b';
+            ctx.font = '900 24px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('KENTATSU', kx + 22, ky);
+
+            // Надпись YUKI INVERTER
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText('YUKI INVERTER', w - 75, h - 68);
+
+            // LED Дисплей
+            if (this.state.power) {
+                const tempStr = `${this.state.targetTemp}°`;
+                ctx.save();
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                ctx.font = 'bold 74px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                ctx.shadowColor = '#38bdf8';
+                ctx.shadowBlur = 18;
+                ctx.fillStyle = '#0ea5e9';
+                ctx.fillText(tempStr, w - 85, h / 2 - 25);
+                ctx.restore();
+            }
+
+        } else {
+            // BALLU ECO SMART (оригинальный)
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, w, h);
+
+            const topGrad = ctx.createLinearGradient(0, 0, 0, 60);
+            topGrad.addColorStop(0, 'rgba(0, 0, 0, 0.05)');
+            topGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = topGrad;
+            ctx.fillRect(0, 0, w, 60);
+
+            const botGrad = ctx.createLinearGradient(0, h - 50, 0, h);
+            botGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+            botGrad.addColorStop(1, 'rgba(0, 0, 0, 0.06)');
+            ctx.fillStyle = botGrad;
+            ctx.fillRect(0, h - 50, w, 50);
+
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(25, h - 35);
+            ctx.lineTo(w - 25, h - 35);
+            ctx.stroke();
+
+            // Логотип Ballu по центру
+            ctx.fillStyle = '#1e293b';
+            ctx.font = 'bold 44px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('Ballu', w / 2, h / 2 + 10);
+
+            ctx.fillStyle = '#ef4444';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.fillText('HOME', w / 2 + 76, h / 2 - 6);
+
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText('ECO SMART', 75, h - 65);
+
+            ctx.textAlign = 'right';
+            ctx.fillText('DC INVERTER', w - 75, h - 65);
+
+            if (this.state.power) {
+                const tempStr = `${this.state.targetTemp}°`;
+                ctx.save();
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                ctx.font = 'bold 74px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                ctx.shadowColor = '#38bdf8';
+                ctx.shadowBlur = 18;
+                ctx.fillStyle = '#ffffff';
+                ctx.fillText(tempStr, w - 85, h / 2 - 25);
+                ctx.restore();
+            }
         }
 
         if (this.indoorFasciaTexture) {
@@ -556,12 +833,19 @@ class ACScene {
         this.indoorSolidCasing = new THREE.Group();
 
         // Создаем текстуру панели
-        this.buildIndoorBalluFasciaTexture();
+        this.buildIndoorFasciaTexture();
 
-        const whitePlasticMat = new THREE.MeshStandardMaterial({
-            color: 0xffffff,
-            roughness: 0.18,
-            metalness: 0.05
+        const curModel = this.currentModel || AC_MODELS['lg'];
+
+        this.indoorPlasticMat = new THREE.MeshStandardMaterial({
+            color: curModel.indoorPlasticColor,
+            roughness: curModel.indoorPlasticRoughness ?? 0.18,
+            metalness: curModel.indoorPlasticMetalness ?? 0.05
+        });
+
+        this.indoorSlotMat = new THREE.MeshStandardMaterial({
+            color: curModel.indoorSlotColor ?? 0x94a3b8,
+            roughness: 0.6
         });
 
         // 1. Задняя стенка корпуса
@@ -572,34 +856,33 @@ class ACScene {
 
         // 2. Верхняя крышка с решеткой забора воздуха
         const topGeo = new THREE.BoxGeometry(width * 0.98, 0.02, depth * 0.88);
-        const topMesh = new THREE.Mesh(topGeo, whitePlasticMat);
+        const topMesh = new THREE.Mesh(topGeo, this.indoorPlasticMat);
         topMesh.position.set(0, height / 2 - 0.01, -0.02);
         this.indoorSolidCasing.add(topMesh);
 
         for (let i = 0; i < 9; i++) {
             const slotGeo = new THREE.BoxGeometry(width * 0.86, 0.005, 0.018);
-            const slotMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.6 });
-            const slot = new THREE.Mesh(slotGeo, slotMat);
+            const slot = new THREE.Mesh(slotGeo, this.indoorSlotMat);
             slot.position.set(0, height / 2 + 0.002, -depth * 0.35 + i * 0.035);
             this.indoorSolidCasing.add(slot);
         }
 
         // 3. Боковые обтекатели
         const sideGeo = new THREE.BoxGeometry(0.02, height * 0.96, depth * 0.92);
-        const leftSide = new THREE.Mesh(sideGeo, whitePlasticMat);
+        const leftSide = new THREE.Mesh(sideGeo, this.indoorPlasticMat);
         leftSide.position.set(-width / 2 + 0.01, 0, 0);
-        const rightSide = new THREE.Mesh(sideGeo, whitePlasticMat);
+        const rightSide = new THREE.Mesh(sideGeo, this.indoorPlasticMat);
         rightSide.position.set(width / 2 - 0.01, 0, 0);
         this.indoorSolidCasing.add(leftSide);
         this.indoorSolidCasing.add(rightSide);
 
         // 4. Дно корпуса
         const botGeo = new THREE.BoxGeometry(width * 0.98, 0.02, depth * 0.82);
-        const botMesh = new THREE.Mesh(botGeo, whitePlasticMat);
+        const botMesh = new THREE.Mesh(botGeo, this.indoorPlasticMat);
         botMesh.position.set(0, -height / 2 + 0.01, -0.04);
         this.indoorSolidCasing.add(botMesh);
 
-        // 5. Выпуклая передняя панель с текстурой Ballu и скрытым LED-дисплеем
+        // 5. Выпуклая передняя панель с текстурой модели и скрытым LED-дисплеем
         const frontGeo = new THREE.PlaneGeometry(width * 0.99, height * 0.78);
         const frontMat = new THREE.MeshStandardMaterial({
             map: this.indoorFasciaTexture,
@@ -610,18 +893,19 @@ class ACScene {
         frontMesh.position.set(0, 0.05, depth / 2 + 0.005);
         frontMesh.rotation.x = -0.04;
         this.indoorSolidCasing.add(frontMesh);
+        this.indoorFrontMesh = frontMesh;
 
-        // 6. Подвижная моторизованная шторка жалюзи Ballu в нижней части
+        // 6. Подвижная моторизованная шторка жалюзи в нижней части
         const louverPivot = new THREE.Group();
         louverPivot.position.set(0, -height / 2 + 0.05, depth / 2 - 0.04);
 
         const louverGeo = new THREE.BoxGeometry(width * 0.94, 0.018, 0.14);
-        const louverMat = new THREE.MeshStandardMaterial({
-            color: 0xffffff,
+        this.indoorLouverMat = new THREE.MeshStandardMaterial({
+            color: curModel.indoorLouverColor,
             roughness: 0.18,
             metalness: 0.05
         });
-        const louverMesh = new THREE.Mesh(louverGeo, louverMat);
+        const louverMesh = new THREE.Mesh(louverGeo, this.indoorLouverMat);
         louverMesh.position.set(0, 0, 0.07);
         louverPivot.add(louverMesh);
 
@@ -857,13 +1141,19 @@ class ACScene {
     }
 
     // ----------------------------------------------------
-    // РЕАЛИСТИЧНЫЙ КОРПУС BALLU DC INVERTER (ВНЕШНИЙ БЛОК)
+    // РЕАЛИСТИЧНЫЙ КОРПУС ВНЕШНЕГО БЛОКА (LG, SAMSUNG, KENTATSU, BALLU)
     // ----------------------------------------------------
     generateOutdoorBalluFrontTexture(width, height) {
+        return this.generateOutdoorFrontTexture('ballu', width, height);
+    }
+
+    generateOutdoorFrontTexture(modelId = 'lg', width, height) {
         const canvas = document.createElement('canvas');
         canvas.width = 1024;
         canvas.height = 716;
         const ctx = canvas.getContext('2d');
+        const curModel = AC_MODELS[modelId] || AC_MODELS['lg'];
+        const isClockwise = curModel.fanDirection === -1;
 
         // Фоновая эмаль белого металлического корпуса
         ctx.fillStyle = '#f4f6f8';
@@ -909,7 +1199,8 @@ class ACScene {
             ctx.stroke();
         });
 
-        // 36 Спиральных аэродинамических ребер Ballu
+        // 36 Спиральных аэродинамических ребер
+        // Для Samsung (вращение по часовой) изгиб по часовой стрелке, для LG/Kentatsu/Ballu — против
         ctx.strokeStyle = '#f8fafc';
         ctx.lineWidth = 6;
         for (let i = 0; i < 36; i++) {
@@ -918,7 +1209,8 @@ class ACScene {
             for (let step = 0; step <= 25; step++) {
                 const t = step / 25;
                 const r = hubRadius + t * (radius - 8 - hubRadius);
-                const a = angle0 + Math.pow(t, 1.25) * 1.32; // спиральный загиб
+                const spiralSign = isClockwise ? -1 : 1;
+                const a = angle0 + spiralSign * Math.pow(t, 1.25) * 1.32;
                 const px = cx + Math.cos(a) * r;
                 const py = cy + Math.sin(a) * r;
                 if (step === 0) ctx.moveTo(px, py);
@@ -936,79 +1228,222 @@ class ACScene {
         ctx.stroke();
 
         // ----------------------------------------------------
-        // ПРАВАЯ ЧАСТЬ: ФИРМЕННЫЙ ШИЛЬДИК BALLU, ШТАМПОВКА И ИНВЕРТОР
+        // ПРАВАЯ ЧАСТЬ: ФИРМЕННЫЙ ДИЗАЙН И ЛОГОТИП БРЕНДА
         // ----------------------------------------------------
-        // Выштампованная область справа
-        ctx.strokeStyle = '#e2e8f0';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.roundRect(690, 60, 300, 596, 24);
-        ctx.stroke();
-
-        // 1. Фирменный зеленый шильдик Ballu
-        const bx = 720, by = 90, bw = 240, bh = 140;
-        ctx.save();
-        ctx.beginPath();
-        ctx.roundRect(bx, by, bw, bh, 18);
-        ctx.clip();
-
-        // Изумрудный фон
-        ctx.fillStyle = '#009a44';
-        ctx.fillRect(bx, by, bw, bh);
-
-        // Салатовая диагональная полоса внизу
-        ctx.fillStyle = '#8dc63f';
-        ctx.beginPath();
-        ctx.moveTo(bx, by + bh);
-        ctx.lineTo(bx + bw, by + bh - 28);
-        ctx.lineTo(bx + bw, by + bh);
-        ctx.closePath();
-        ctx.fill();
-
-        // Белая надпись Ballu
-        ctx.fillStyle = '#ffffff';
-        ctx.font = '900 64px -apple-system, BlinkMacSystemFont, "Arial Black", Arial, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('Ballu', bx + bw / 2, by + bh / 2 - 10);
-
-        ctx.font = 'bold 16px sans-serif';
-        ctx.fillText('®', bx + bw / 2 + 90, by + bh / 2 - 26);
-        ctx.restore();
-
-        // 2. Три горизонтальные рельефные полосы штамповки
-        const slots = [290, 350, 410];
-        slots.forEach(sy => {
-            ctx.fillStyle = '#e2e8f0';
+        if (modelId === 'lg') {
+            // ДИЗАЙН ВНЕШНЕГО БЛОКА LG DUAL INVERTER
+            // Штамповка сервисной панели справа
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.roundRect(730, sy, 220, 22, 11);
+            ctx.roundRect(690, 60, 300, 596, 24);
+            ctx.stroke();
+
+            const lx = 840, ly = 230, lr = 65;
+
+            // Фирменный красный круг эмблемы LG (#a50034)
+            ctx.fillStyle = '#a50034';
+            ctx.beginPath();
+            ctx.arc(lx, ly, lr, 0, Math.PI * 2);
             ctx.fill();
 
-            // Тень и блик для 3D рельефа
-            ctx.fillStyle = '#cbd5e1';
-            ctx.beginPath();
-            ctx.roundRect(733, sy + 3, 214, 8, 4);
-            ctx.fill();
+            // Белое стилизованное лицо L-G внутри эмблемы
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = lr * 0.12;
+            ctx.lineCap = 'round';
 
+            // Контур буквы G
+            ctx.beginPath();
+            ctx.arc(lx, ly, lr * 0.64, -Math.PI * 0.75, Math.PI * 0.65);
+            ctx.stroke();
+
+            // Внутренний носик L
+            ctx.beginPath();
+            ctx.moveTo(lx - lr * 0.10, ly - lr * 0.32);
+            ctx.lineTo(lx - lr * 0.10, ly + lr * 0.16);
+            ctx.lineTo(lx + lr * 0.18, ly + lr * 0.16);
+            ctx.stroke();
+
+            // Точка-глаз
             ctx.fillStyle = '#ffffff';
             ctx.beginPath();
-            ctx.roundRect(733, sy + 11, 214, 8, 4);
+            ctx.arc(lx - lr * 0.28, ly - lr * 0.16, lr * 0.08, 0, Math.PI * 2);
             ctx.fill();
-        });
 
-        // 3. Надпись DC INVERTER
-        ctx.fillStyle = '#475569';
-        ctx.font = 'bold 30px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('DC INVERTER', 840, 525);
+            // Надпись LG под эмблемой
+            ctx.fillStyle = '#1e293b';
+            ctx.font = '900 64px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('LG', lx, ly + lr + 55);
+
+            // Надпись DUAL Inverter
+            ctx.fillStyle = '#475569';
+            ctx.font = 'bold 26px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+            ctx.fillText('DUAL Inverter', lx, ly + lr + 105);
+
+            // Рельефные горизонтальные полосы штамповки внизу
+            [480, 540].forEach(sy => {
+                ctx.fillStyle = '#e2e8f0';
+                ctx.beginPath();
+                ctx.roundRect(740, sy, 200, 18, 9);
+                ctx.fill();
+            });
+
+        } else if (modelId === 'samsung') {
+            // ДИЗАЙН ВНЕШНЕГО БЛОКА SAMSUNG WINDFREE
+            // Общая штамповка сервисной панели справа
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.roundRect(690, 60, 300, 596, 24);
+            ctx.stroke();
+
+            // Логотип SAMSUNG сверху справа фирменным синим цветом (#034ea2)
+            ctx.fillStyle = '#034ea2';
+            ctx.font = '900 46px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('SAMSUNG', 840, 125);
+
+            // Выштампованная рельефная крышка вентилей в форме характерного кармана Samsung
+            const vx = 720, vy = 175, vw = 240, vh = 390;
+            ctx.save();
+            ctx.fillStyle = '#eef2f6';
+            ctx.beginPath();
+            ctx.roundRect(vx, vy, vw, vh, 20);
+            ctx.fill();
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Внутренние горизонтальные рельефные ребра
+            [260, 320, 380, 440].forEach(ry => {
+                ctx.fillStyle = '#e2e8f0';
+                ctx.beginPath();
+                ctx.roundRect(vx + 25, ry, vw - 50, 16, 8);
+                ctx.fill();
+            });
+            ctx.restore();
+
+            // Надпись DIGITAL INVERTER внизу
+            ctx.fillStyle = '#64748b';
+            ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('DIGITAL INVERTER', 840, 605);
+
+        } else if (modelId === 'kentatsu') {
+            // ДИЗАЙН ВНЕШНЕГО БЛОКА KENTATSU YUKI
+            // Штамповка панели
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.roundRect(690, 60, 300, 596, 24);
+            ctx.stroke();
+
+            // Крупная красная эмблема Kentatsu Yuki (снежинка/цветок из 8 квадратов)
+            const kx = 840, ky = 195;
+            this.drawKentatsuIcon(ctx, kx, ky, 44);
+
+            // 3 горизонтальные вентиляционные штампованные прорези
+            [315, 365, 415].forEach(sy => {
+                ctx.fillStyle = '#e2e8f0';
+                ctx.beginPath();
+                ctx.roundRect(730, sy, 220, 20, 10);
+                ctx.fill();
+
+                ctx.fillStyle = '#cbd5e1';
+                ctx.beginPath();
+                ctx.roundRect(733, sy + 3, 214, 7, 3);
+                ctx.fill();
+            });
+
+            // Маленькая эмблема и надпись KENTATSU внизу
+            this.drawKentatsuIcon(ctx, 755, 545, 12);
+            ctx.fillStyle = '#1e293b';
+            ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('KENTATSU', 775, 545);
+
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('YUKI INVERTER', 840, 590);
+
+        } else {
+            // BALLU DC INVERTER
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.roundRect(690, 60, 300, 596, 24);
+            ctx.stroke();
+
+            // 1. Фирменный зеленый шильдик Ballu
+            const bx = 720, by = 90, bw = 240, bh = 140;
+            ctx.save();
+            ctx.beginPath();
+            ctx.roundRect(bx, by, bw, bh, 18);
+            ctx.clip();
+
+            // Изумрудный фон
+            ctx.fillStyle = '#009a44';
+            ctx.fillRect(bx, by, bw, bh);
+
+            // Салатовая диагональная полоса внизу
+            ctx.fillStyle = '#8dc63f';
+            ctx.beginPath();
+            ctx.moveTo(bx, by + bh);
+            ctx.lineTo(bx + bw, by + bh - 28);
+            ctx.lineTo(bx + bw, by + bh);
+            ctx.closePath();
+            ctx.fill();
+
+            // Белая надпись Ballu
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '900 64px -apple-system, BlinkMacSystemFont, "Arial Black", Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('Ballu', bx + bw / 2, by + bh / 2 - 10);
+
+            ctx.font = 'bold 16px sans-serif';
+            ctx.fillText('®', bx + bw / 2 + 90, by + bh / 2 - 26);
+            ctx.restore();
+
+            // 2. Три горизонтальные рельефные полосы штамповки
+            const slots = [290, 350, 410];
+            slots.forEach(sy => {
+                ctx.fillStyle = '#e2e8f0';
+                ctx.beginPath();
+                ctx.roundRect(730, sy, 220, 22, 11);
+                ctx.fill();
+
+                ctx.fillStyle = '#cbd5e1';
+                ctx.beginPath();
+                ctx.roundRect(733, sy + 3, 214, 8, 4);
+                ctx.fill();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.roundRect(733, sy + 11, 214, 8, 4);
+                ctx.fill();
+            });
+
+            // 3. Надпись DC INVERTER
+            ctx.fillStyle = '#475569';
+            ctx.font = 'bold 30px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('DC INVERTER', 840, 525);
+        }
 
         return new THREE.CanvasTexture(canvas);
     }
 
     buildOutdoorSolidCasing(outdoorGroup, width, height, depth) {
+        this.outdoorCasingDims = { width, height, depth };
         this.outdoorSolidCasing = new THREE.Group();
 
-        const frontTex = this.generateOutdoorBalluFrontTexture(width, height);
+        const frontTex = this.generateOutdoorFrontTexture(this.currentModelId, width, height);
 
         const metalWhiteMat = new THREE.MeshStandardMaterial({
             color: 0xf3f5f8,
@@ -1047,7 +1482,7 @@ class ACScene {
         topMesh.position.set(0, height / 2 + 0.02, 0);
         this.outdoorSolidCasing.add(topMesh);
 
-        // 3. Лицевая панель Ballu со спиральной решеткой и прозрачными прорезями
+        // 3. Лицевая панель со спиральной решеткой и прозрачными прорезями
         const frontGeo = new THREE.PlaneGeometry(width, height);
         const frontMat = new THREE.MeshStandardMaterial({
             map: frontTex,
@@ -1060,6 +1495,7 @@ class ACScene {
         const frontMesh = new THREE.Mesh(frontGeo, frontMat);
         frontMesh.position.set(0, 0, depth / 2 + 0.005);
         this.outdoorSolidCasing.add(frontMesh);
+        this.outdoorFrontMesh = frontMesh;
 
         // 4. Боковой сервисный кожух вентилей (справа)
         const shroudGroup = new THREE.Group();
@@ -1233,26 +1669,40 @@ class ACScene {
         rotorGroup.add(noseCap);
 
         // 3 Серповидные реалистичные лопасти
-        const bladeMat = new THREE.MeshStandardMaterial({
+        this.outdoorBladeMat = new THREE.MeshStandardMaterial({
             color: 0x3b4759,
             metalness: 0.55,
             roughness: 0.28,
             side: THREE.DoubleSide
         });
 
-        for (let b = 0; b < 3; b++) {
-            const bladeAngle = (b / 3) * Math.PI * 2;
-            const bladeMesh = this.createSickleBladeMesh(bladeMat);
-            bladeMesh.rotation.z = bladeAngle;
-            rotorGroup.add(bladeMesh);
-        }
+        this.outdoorBladesGroup = new THREE.Group();
+        rotorGroup.add(this.outdoorBladesGroup);
+
+        const curModel = this.currentModel || AC_MODELS['lg'];
+        this.updateOutdoorFanBlades(curModel.fanDirection === -1);
 
         outdoorGroup.add(rotorGroup);
         this.animatedObjects.outdoorFanRotor = rotorGroup;
         this.animatedObjects.outdoorFan = rotorGroup;
     }
 
-    createSickleBladeMesh(material) {
+    updateOutdoorFanBlades(isClockwise = false) {
+        if (!this.outdoorBladesGroup || !this.outdoorBladeMat) return;
+        while (this.outdoorBladesGroup.children.length > 0) {
+            const child = this.outdoorBladesGroup.children[0];
+            if (child.geometry) child.geometry.dispose();
+            this.outdoorBladesGroup.remove(child);
+        }
+        for (let b = 0; b < 3; b++) {
+            const bladeAngle = (b / 3) * Math.PI * 2;
+            const bladeMesh = this.createSickleBladeMesh(this.outdoorBladeMat, isClockwise);
+            bladeMesh.rotation.z = bladeAngle;
+            this.outdoorBladesGroup.add(bladeMesh);
+        }
+    }
+
+    createSickleBladeMesh(material, isClockwise = false) {
         // Создаем реалистичную серповидную лопасть с профилем и закруткой (washout twist)
         const rRoot = 0.08;
         const rTip = 0.36;
@@ -1263,15 +1713,17 @@ class ACScene {
         const indices = [];
         const uvs = [];
 
+        const dir = isClockwise ? -1 : 1;
+
         for (let i = 0; i <= radialSteps; i++) {
             const u = i / radialSteps;
             const r = rRoot + u * (rTip - rRoot);
 
             // Аэродинамическая закрутка угла атаки: от 34° у корня до 16° на конце
-            const pitch = 0.60 - u * 0.32;
+            const pitch = (0.60 - u * 0.32) * dir;
 
             // Серповидный изгиб лопасти назад (backward sickle sweep)
-            const sweep = Math.pow(u, 1.4) * 0.45;
+            const sweep = (Math.pow(u, 1.4) * 0.45) * dir;
 
             // Хорда лопасти: утолщается в средней части
             const chord = 0.095 + Math.sin(u * Math.PI) * 0.075;
@@ -1280,9 +1732,9 @@ class ACScene {
                 const v = j / chordSteps;
 
                 // Профиль толщины и прогиба
-                const camber = Math.sin(v * Math.PI) * (0.016 - u * 0.007);
+                const camber = Math.sin(v * Math.PI) * (0.016 - u * 0.007) * dir;
 
-                const cDist = (v - 0.32) * chord;
+                const cDist = (v - 0.32) * chord * dir;
                 const localX = cDist * Math.cos(pitch);
                 const localZ = cDist * Math.sin(pitch) + camber;
 
@@ -1316,6 +1768,45 @@ class ACScene {
         geo.computeVertexNormals();
 
         return new THREE.Mesh(geo, material);
+    }
+
+    setModel(modelId) {
+        if (!AC_MODELS[modelId]) return;
+        this.currentModelId = modelId;
+        this.currentModel = AC_MODELS[modelId];
+
+        // 1. Обновляем цвета и материалы внутреннего блока
+        if (this.indoorPlasticMat) {
+            this.indoorPlasticMat.color.setHex(this.currentModel.indoorPlasticColor);
+            this.indoorPlasticMat.roughness = this.currentModel.indoorPlasticRoughness ?? 0.18;
+            this.indoorPlasticMat.metalness = this.currentModel.indoorPlasticMetalness ?? 0.05;
+        }
+        if (this.indoorLouverMat) {
+            this.indoorLouverMat.color.setHex(this.currentModel.indoorLouverColor);
+        }
+        if (this.indoorSlotMat) {
+            this.indoorSlotMat.color.setHex(this.currentModel.indoorSlotColor ?? 0x94a3b8);
+        }
+
+        // 2. Обновляем текстуру передней панели внутреннего блока с логотипом
+        this.updateIndoorFasciaDisplay();
+
+        // 3. Обновляем текстуру лицевой панели внешнего блока с брендом и решеткой
+        if (this.outdoorFrontMesh && this.outdoorCasingDims) {
+            const newTex = this.generateOutdoorFrontTexture(
+                modelId,
+                this.outdoorCasingDims.width,
+                this.outdoorCasingDims.height
+            );
+            if (this.outdoorFrontMesh.material.map) {
+                this.outdoorFrontMesh.material.map.dispose();
+            }
+            this.outdoorFrontMesh.material.map = newTex;
+            this.outdoorFrontMesh.material.needsUpdate = true;
+        }
+
+        // 4. Обновляем лопасти вентилятора под направление вращения
+        this.updateOutdoorFanBlades(this.currentModel.fanDirection === -1);
     }
 
     buildPiping() {
@@ -2277,7 +2768,8 @@ class ACScene {
             this.animatedObjects.indoorFan.rotation.x -= spinDelta * this.physics.indoorFanRpmCurrent;
         }
         if (this.animatedObjects.outdoorFanRotor && this.physics.fanRpmCurrent > 0.01) {
-            this.animatedObjects.outdoorFanRotor.rotation.z += spinDelta * this.physics.fanRpmCurrent;
+            const fanDir = (this.currentModel && typeof this.currentModel.fanDirection === 'number') ? this.currentModel.fanDirection : 1;
+            this.animatedObjects.outdoorFanRotor.rotation.z += fanDir * spinDelta * this.physics.fanRpmCurrent;
         }
 
         // Положение направляющей шторки жалюзи (на хай-тек модели и на корпусе Ballu)
