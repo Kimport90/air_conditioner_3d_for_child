@@ -26,6 +26,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (modelSelect) {
         modelSelect.value = initialModel;
         modelSelect.addEventListener('change', (e) => {
+            if (checkDestroyedAndBlock()) {
+                e.target.value = acScene.currentModelId;
+                return;
+            }
             const selectedModel = e.target.value;
             localStorage.setItem('ac_selected_model', selectedModel);
             if (window.soundEngine) {
@@ -97,8 +101,47 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('pointerdown', initSoundOnGesture);
     window.addEventListener('touchstart', initSoundOnGesture, { passive: true });
 
+    const repairModal = document.getElementById('repair-modal');
+    const repairBtn = document.getElementById('btn-repair');
+    const nodesBar = document.querySelector('.nodes-bar');
+
+    function shakeRepairBtn() {
+        if (!repairBtn) return;
+        repairBtn.classList.remove('shake');
+        void repairBtn.offsetWidth;
+        repairBtn.classList.add('shake');
+    }
+
+    function checkDestroyedAndBlock() {
+        if (acScene && acScene.isACDestroyed) {
+            if (window.soundEngine) window.soundEngine.playErrorBeep();
+            shakeRepairBtn();
+            return true;
+        }
+        return false;
+    }
+
     // Функция обновления экрана пульта
     function updateRemoteUI() {
+        if (acScene && acScene.isACDestroyed) {
+            pwrIndicator.classList.add('off');
+            pwrIndicator.style.backgroundColor = '#ef4444';
+            pwrIndicator.style.boxShadow = '0 0 10px #ef4444';
+            tempDigits.innerHTML = '<span style="color:#ef4444; font-size:1.85rem; font-weight:900;">ERR 💥</span>';
+            modeBadge.textContent = 'АВАРИЯ ⚠️';
+            modeBadge.style.color = '#ef4444';
+            fanSpeedTxt.textContent = 'ОТКЛ 0';
+            fanBars.forEach(b => {
+                b.classList.remove('active');
+                b.style.backgroundColor = '#334155';
+                b.style.boxShadow = 'none';
+            });
+            return;
+        }
+
+        pwrIndicator.style.backgroundColor = '';
+        pwrIndicator.style.boxShadow = '';
+
         if (!isPowerOn) {
             pwrIndicator.classList.add('off');
             tempDigits.textContent = '--';
@@ -135,6 +178,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 1. Кнопка ВКЛ / ВЫКЛ
     pwrBtn.addEventListener('click', () => {
+        if (checkDestroyedAndBlock()) return;
         isPowerOn = !isPowerOn;
         if (window.soundEngine) {
             window.soundEngine.playRemoteBeep();
@@ -146,6 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 2. Регулировка температуры
     tempUpBtn.addEventListener('click', () => {
+        if (checkDestroyedAndBlock()) return;
         if (!isPowerOn) return;
         if (currentTemp < 30) {
             currentTemp++;
@@ -156,6 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     tempDownBtn.addEventListener('click', () => {
+        if (checkDestroyedAndBlock()) return;
         if (!isPowerOn) return;
         if (currentTemp > 16) {
             currentTemp--;
@@ -167,6 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 3. Смена режима (Охлаждение -> Обогрев -> Вентиляция)
     modeBtn.addEventListener('click', () => {
+        if (checkDestroyedAndBlock()) return;
         if (!isPowerOn) return;
         currentModeIndex = (currentModeIndex + 1) % modes.length;
         const newMode = modes[currentModeIndex];
@@ -177,6 +224,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 4. Скорость вентилятора
     fanBtn.addEventListener('click', () => {
+        if (checkDestroyedAndBlock()) return;
         if (!isPowerOn) return;
         currentFanSpeed = (currentFanSpeed % 4) + 1;
         if (window.soundEngine) window.soundEngine.playRemoteBeep();
@@ -186,6 +234,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 5. Кнопка ТУРБО
     turboBtn.addEventListener('click', () => {
+        if (checkDestroyedAndBlock()) return;
         if (!isPowerOn) return;
         currentFanSpeed = 4;
         if (window.soundEngine) window.soundEngine.playRemoteBeep();
@@ -203,6 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     xrayToggleBtn.addEventListener('click', () => {
+        if (checkDestroyedAndBlock()) return;
         const isXray = acScene.toggleXray();
         if (window.soundEngine) window.soundEngine.playRemoteBeep();
         xrayToggleBtn.innerHTML = isXray ? '🔍 <span>Рентген: Вкл</span>' : '📦 <span>Корпус: Сплошной</span>';
@@ -210,6 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     slowMoBtn.addEventListener('click', () => {
+        if (checkDestroyedAndBlock()) return;
         const isSlow = acScene.toggleSlowMo();
         if (window.soundEngine) window.soundEngine.playRemoteBeep();
         slowMoBtn.innerHTML = isSlow ? '⏳ <span>Скорость: Замедленно</span>' : '⚡ <span>Скорость: Обычная</span>';
@@ -221,6 +272,15 @@ document.addEventListener('DOMContentLoaded', () => {
         acScene.resetCamera();
         closeNodeCard();
         nodePills.forEach(p => p.classList.remove('active'));
+        if (acScene.isACDestroyed) {
+            if (repairModal) repairModal.classList.remove('visible');
+            if (nodesBar) nodesBar.classList.remove('hidden');
+            if (window.soundEngine) window.soundEngine.playRepairSound();
+            acScene.restoreAirConditioner();
+            setTimeout(() => {
+                updateRemoteUI();
+            }, 1150);
+        }
     });
 
     // 7. Функция показа карточки узла
@@ -315,6 +375,47 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.stopPropagation();
                 toggleLegendCollapse(false);
             }
+        });
+    }
+
+    // 10. Пасхалка: взрыв крипера и кнопка починки кондиционера
+    window.onCreeperExplosion = () => {
+        if (repairModal) {
+            repairModal.classList.add('visible');
+        }
+        if (nodesBar) {
+            nodesBar.classList.add('hidden');
+        }
+        closeNodeCard();
+        updateRemoteUI();
+    };
+
+    window.onACRestored = () => {
+        if (repairModal) {
+            repairModal.classList.remove('visible');
+        }
+        if (nodesBar) {
+            nodesBar.classList.remove('hidden');
+        }
+        updateRemoteUI();
+    };
+    acScene.onRestoreComplete = window.onACRestored;
+
+    if (repairBtn) {
+        repairBtn.addEventListener('click', () => {
+            if (repairModal) {
+                repairModal.classList.remove('visible');
+            }
+            if (nodesBar) {
+                nodesBar.classList.remove('hidden');
+            }
+            if (window.soundEngine) {
+                window.soundEngine.playRepairSound();
+            }
+            acScene.restoreAirConditioner();
+            setTimeout(() => {
+                updateRemoteUI();
+            }, 1250);
         });
     }
 

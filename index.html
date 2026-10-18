@@ -13,7 +13,7 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
-    <link rel="stylesheet" href="style.css?v=5">
+    <link rel="stylesheet" href="style.css?v=7">
     <!-- Three.js и OrbitControls -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -30,6 +30,8 @@
 
     <!-- 3D Canvas Контейнер -->
     <div id="canvas-container"></div>
+    <!-- Экранная вспышка при взрыве -->
+    <div id="explosion-flash" class="explosion-flash"></div>
 
     <!-- Верхняя шапка -->
     <div class="header-bar">
@@ -166,10 +168,22 @@
         </div>
     </div>
 
+    <!-- Плавающий HUD восстановления после взрыва крипера (свободный обзор 3D) -->
+    <div id="repair-modal" class="repair-modal">
+        <div class="repair-content">
+            <span class="repair-status-pill">💥 Сплит-система разрушена!</span>
+            <button id="btn-repair" class="repair-btn" title="Собрать кондиционер обратно">
+                <span class="repair-btn-icon">🔧</span>
+                <span>Починить кондиционер</span>
+            </button>
+            <span class="repair-hint-text">👆 Вращай камеру, чтобы изучить обломки</span>
+        </div>
+    </div>
+
     <!-- Подключение скриптов приложения -->
-    <script src="sound.js?v=5"></script>
-    <script src="scene.js?v=5"></script>
-    <script src="app.js?v=5"></script>
+    <script src="sound.js?v=7"></script>
+    <script src="scene.js?v=7"></script>
+    <script src="app.js?v=7"></script>
     <script>
         // Регистрация Service Worker для автономной работы на iPad с принудительным обновлением кэша
         if ('serviceWorker' in navigator) {

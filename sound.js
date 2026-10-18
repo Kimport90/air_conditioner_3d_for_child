@@ -155,6 +155,139 @@ class SoundEngine {
         }
     }
 
+    // Нарастающее шипение фитиля крипера (1.5 сек перед детонацией)
+    playCreeperFuse() {
+        this.init();
+        this.resume();
+        if (this.isMuted || !this.ctx) return;
+
+        this.stopCreeperFuse();
+
+        const duration = 1.6;
+        const bufferSize = Math.floor(this.ctx.sampleRate * duration);
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const output = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            output[i] = (Math.random() * 2 - 1) * 0.4;
+        }
+
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        const bandpass = this.ctx.createBiquadFilter();
+        bandpass.type = 'bandpass';
+        const now = this.ctx.currentTime;
+        bandpass.frequency.setValueAtTime(2000, now);
+        bandpass.frequency.exponentialRampToValueAtTime(4500, now + duration);
+        bandpass.Q.setValueAtTime(2.2, now);
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.04, now);
+        gain.gain.linearRampToValueAtTime(0.28, now + duration);
+
+        noise.connect(bandpass);
+        bandpass.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        noise.start(now);
+        noise.stop(now + duration);
+
+        this.creeperFuseNode = { source: noise, gain: gain };
+    }
+
+    stopCreeperFuse() {
+        if (this.creeperFuseNode) {
+            try {
+                this.creeperFuseNode.source.stop();
+                this.creeperFuseNode.source.disconnect();
+            } catch (e) {}
+            this.creeperFuseNode = null;
+        }
+    }
+
+    // Мощный взрыв в стиле Minecraft (тяжелый суб-бас + шумовой разрыв + реверберационный хвост)
+    playCreeperExplosion() {
+        this.stopCreeperFuse();
+        this.init();
+        this.resume();
+        if (this.isMuted || !this.ctx) return;
+
+        const now = this.ctx.currentTime;
+
+        // 1. Ударная низкочастотная волна (Sub-bass thump)
+        try {
+            const subOsc = this.ctx.createOscillator();
+            const subGain = this.ctx.createGain();
+            subOsc.type = 'triangle';
+            subOsc.frequency.setValueAtTime(140, now);
+            subOsc.frequency.exponentialRampToValueAtTime(24, now + 0.6);
+
+            subGain.gain.setValueAtTime(0.55, now);
+            subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+
+            subOsc.connect(subGain);
+            subGain.connect(this.ctx.destination);
+            subOsc.start(now);
+            subOsc.stop(now + 0.75);
+        } catch (e) {}
+
+        // 2. Взрывной разрыв белого шума (Blast wave)
+        try {
+            const burstDuration = 1.4;
+            const bufferSize = Math.floor(this.ctx.sampleRate * burstDuration);
+            const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = (Math.random() * 2 - 1);
+            }
+
+            const burst = this.ctx.createBufferSource();
+            burst.buffer = buffer;
+
+            const lowpass = this.ctx.createBiquadFilter();
+            lowpass.type = 'lowpass';
+            lowpass.frequency.setValueAtTime(2400, now);
+            lowpass.frequency.exponentialRampToValueAtTime(200, now + burstDuration);
+
+            const burstGain = this.ctx.createGain();
+            burstGain.gain.setValueAtTime(0.65, now);
+            burstGain.gain.exponentialRampToValueAtTime(0.001, now + burstDuration);
+
+            burst.connect(lowpass);
+            lowpass.connect(burstGain);
+            burstGain.connect(this.ctx.destination);
+
+            burst.start(now);
+            burst.stop(now + burstDuration);
+        } catch (e) {}
+    }
+
+    // Звонкий восстановительный звук сборки / починки
+    playRepairSound() {
+        this.init();
+        this.resume();
+        if (this.isMuted || !this.ctx) return;
+
+        const now = this.ctx.currentTime;
+        // Восходящее мажорное арпеджио C5 -> E5 -> G5 -> C6 с легким эхом
+        const notes = [523.25, 659.25, 783.99, 1046.50];
+        notes.forEach((freq, idx) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            const t = now + idx * 0.08;
+
+            osc.frequency.setValueAtTime(freq, t);
+            gain.gain.setValueAtTime(0.12, t);
+            gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(t);
+            osc.stop(t + 0.30);
+        });
+    }
+
     // Низкий рокочущий звук компрессора
     setupCompressor() {
         if (!this.ctx) return;
@@ -336,6 +469,47 @@ class SoundEngine {
             this.windFilter.frequency.linearRampToValueAtTime(600 + 400 * (this.targetRpmRatio - 0.5), now + 0.5);
         }
         this.updateVolumes();
+    }
+
+    // Мгновенная остановка звуков работы кондиционера (при аварии / взрыве)
+    silenceAC() {
+        this.isCompressorRunning = false;
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        if (this.compressorGain) {
+            this.compressorGain.gain.cancelScheduledValues(now);
+            this.compressorGain.gain.setValueAtTime(0, now);
+        }
+        if (this.windGain) {
+            this.windGain.gain.cancelScheduledValues(now);
+            this.windGain.gain.setValueAtTime(0, now);
+        }
+    }
+
+    // Звук ошибки пульта (двойной короткий зуммер "бзз-бзз")
+    playErrorBeep() {
+        this.init();
+        this.resume();
+        if (this.isMuted || !this.ctx) return;
+
+        const now = this.ctx.currentTime;
+        [0, 0.09].forEach(offset => {
+            try {
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, now + offset);
+                osc.frequency.linearRampToValueAtTime(110, now + offset + 0.06);
+
+                gain.gain.setValueAtTime(0.12, now + offset);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.06);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now + offset);
+                osc.stop(now + offset + 0.07);
+            } catch (e) {}
+        });
     }
 }
 

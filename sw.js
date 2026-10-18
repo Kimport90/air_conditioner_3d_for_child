@@ -1,13 +1,13 @@
-// sw.js - Service Worker v5 с поддержкой выбора моделей (LG, Samsung, Kentatsu, Ballu) и PWA
-const CACHE_NAME = 'ac-3d-cache-v5';
+// sw.js - Service Worker v7 с разрушением дисплея, остановкой кондиционера и плавающей кнопкой починки
+const CACHE_NAME = 'ac-3d-cache-v7';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
     './manifest.json',
-    './style.css?v=5',
-    './sound.js?v=5',
-    './scene.js?v=5',
-    './app.js?v=5',
+    './style.css?v=7',
+    './sound.js?v=7',
+    './scene.js?v=7',
+    './app.js?v=7',
     './conditioner/lg.jpg',
     './conditioner/samsung.jpg',
     './conditioner/kentatsu.jpg',

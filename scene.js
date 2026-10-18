@@ -108,6 +108,18 @@ class ACScene {
         this.defaultCameraPos = new THREE.Vector3(0, 3.2, 7.8);
         this.defaultLookAt = new THREE.Vector3(0, 1.2, 0);
 
+        // Состояние пасхалки взрыва и обломков
+        this.cameraShakeIntensity = 0;
+        this.cameraShakeTimer = 0;
+        this.debrisList = [];
+        this.explosionParticles = [];
+        this.electricSparks = [];
+        this.sparkTimer = 0;
+        this.flickerTimer = 0;
+        this.isACDestroyed = false;
+        this.isRestoring = false;
+        this.restoreProgress = 0;
+
         this.init();
     }
 
@@ -530,10 +542,10 @@ class ACScene {
         this.indoorFasciaCanvas = canvas;
         this.indoorFasciaCtx = ctx;
 
-        this.updateIndoorFasciaDisplay();
-
         const texture = new THREE.CanvasTexture(canvas);
         this.indoorFasciaTexture = texture;
+
+        this.updateIndoorFasciaDisplay();
     }
 
     drawKentatsuIcon(ctx, cx, cy, radius = 18) {
@@ -552,6 +564,23 @@ class ACScene {
             ctx.restore();
         }
         ctx.restore();
+    }
+
+    drawRoundRect(ctx, x, y, width, height, radius) {
+        if (typeof ctx.roundRect === 'function') {
+            ctx.roundRect(x, y, width, height, radius);
+        } else {
+            const r = Math.min(radius, width / 2, height / 2);
+            ctx.moveTo(x + r, y);
+            ctx.lineTo(x + width - r, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+            ctx.lineTo(x + width, y + height - r);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+            ctx.lineTo(x + r, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+            ctx.lineTo(x, y + r);
+            ctx.quadraticCurveTo(x, y, x + r, y);
+        }
     }
 
     updateIndoorBalluDisplay() {
@@ -635,7 +664,9 @@ class ACScene {
             ctx.fillText('DUAL Inverter', w - 80, h - 65);
 
             // LED Дисплей (светящиеся голубые цифры температуры)
-            if (this.state.power) {
+            if (this.isACDestroyed) {
+                this.drawDamagedDisplay(ctx, 'lg', w, h);
+            } else if (this.state.power) {
                 const tempStr = `${this.state.targetTemp}°`;
                 ctx.save();
                 ctx.textAlign = 'right';
@@ -690,12 +721,14 @@ class ACScene {
             ctx.fillText('WindFree™', w - 70, 52);
 
             // Цифровой LED дисплей Samsung на затемненной мини-панели внизу справа
-            if (this.state.power) {
+            if (this.isACDestroyed) {
+                this.drawDamagedDisplay(ctx, 'samsung', w, h);
+            } else if (this.state.power) {
                 const tempStr = `${this.state.targetTemp}°`;
                 const bx = w - 165, by = h - 110, bw = 100, bh = 50;
                 ctx.fillStyle = '#0a0c0e';
                 ctx.beginPath();
-                ctx.roundRect(bx, by, bw, bh, 8);
+                this.drawRoundRect(ctx, bx, by, bw, bh, 8);
                 ctx.fill();
                 ctx.strokeStyle = '#272d36';
                 ctx.lineWidth = 1.5;
@@ -754,7 +787,9 @@ class ACScene {
             ctx.fillText('YUKI INVERTER', w - 75, h - 68);
 
             // LED Дисплей
-            if (this.state.power) {
+            if (this.isACDestroyed) {
+                this.drawDamagedDisplay(ctx, 'kentatsu', w, h);
+            } else if (this.state.power) {
                 const tempStr = `${this.state.targetTemp}°`;
                 ctx.save();
                 ctx.textAlign = 'right';
@@ -810,7 +845,9 @@ class ACScene {
             ctx.textAlign = 'right';
             ctx.fillText('DC INVERTER', w - 75, h - 65);
 
-            if (this.state.power) {
+            if (this.isACDestroyed) {
+                this.drawDamagedDisplay(ctx, 'ballu', w, h);
+            } else if (this.state.power) {
                 const tempStr = `${this.state.targetTemp}°`;
                 ctx.save();
                 ctx.textAlign = 'right';
@@ -827,6 +864,104 @@ class ACScene {
         if (this.indoorFasciaTexture) {
             this.indoorFasciaTexture.needsUpdate = true;
         }
+    }
+
+    drawDamagedDisplay(ctx, modelId, w, h) {
+        let cx, cy, fontSize;
+        if (modelId === 'samsung') {
+            const bx = w - 165, by = h - 110, bw = 100, bh = 50;
+            cx = bx + bw / 2;
+            cy = by + bh / 2 + 1;
+            fontSize = 32;
+
+            // Затемненная рамочка дисплея Samsung с повреждениями
+            ctx.fillStyle = '#0a0c0e';
+            ctx.beginPath();
+            this.drawRoundRect(ctx, bx, by, bw, bh, 8);
+            ctx.fill();
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+        } else {
+            // Для LG, Kentatsu, Ballu центрируем по области LED индикатора (w - 145)
+            cx = w - 145;
+            cy = h / 2 - 25;
+            fontSize = 72;
+        }
+
+        // 1. Обугленное пятно (копоть от электрического взрыва)
+        const scorchR = modelId === 'samsung' ? 65 : 110;
+        const scorch = ctx.createRadialGradient(cx, cy, 10, cx, cy, scorchR);
+        scorch.addColorStop(0, 'rgba(12, 12, 14, 0.95)');
+        scorch.addColorStop(0.35, 'rgba(40, 25, 20, 0.75)');
+        scorch.addColorStop(0.75, 'rgba(60, 40, 30, 0.35)');
+        scorch.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = scorch;
+        ctx.beginPath();
+        ctx.arc(cx, cy, scorchR, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 2. Мерцающий поврежденный индикатор (ошибки 'Er', 'E1', '--', '8-')
+        const errorCodes = ['Er', 'E1', '--', '8-', 'Er'];
+        const errText = errorCodes[Math.floor(Math.random() * errorCodes.length)];
+        const isFlickerOn = this.isInitialExplosionFrame ? true : (Math.random() > 0.12);
+
+        if (isFlickerOn) {
+            ctx.save();
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", monospace`;
+            ctx.shadowColor = Math.random() > 0.4 ? '#ef4444' : '#00e5ff';
+            ctx.shadowBlur = 18;
+            ctx.fillStyle = Math.random() > 0.4 ? '#f87171' : '#38bdf8';
+            ctx.fillText(errText, cx, cy);
+            ctx.restore();
+        }
+
+        // 3. Звездчатая паутина трещин на защитном стекле индикатора
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.88)';
+        ctx.lineWidth = 2.2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        // Радиальные изломанные лучи трещин
+        const angles = [0.15, 0.65, 1.35, 2.1, 2.85, 3.6, 4.4, 5.2, 5.9];
+        angles.forEach(baseAngle => {
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            let curX = cx;
+            let curY = cy;
+            const segments = 3 + Math.floor(Math.random() * 3);
+            let segDist = 12 + Math.random() * 10;
+
+            for (let s = 0; s < segments; s++) {
+                const devAngle = baseAngle + (Math.sin(s * 1.7) * 0.4);
+                curX += Math.cos(devAngle) * segDist;
+                curY += Math.sin(devAngle) * segDist;
+                ctx.lineTo(curX, curY);
+
+                if (s === 1 && Math.random() > 0.3) {
+                    const branchAng = devAngle + (Math.random() > 0.5 ? 0.7 : -0.7);
+                    const bx2 = curX + Math.cos(branchAng) * (segDist * 0.7);
+                    const by2 = curY + Math.sin(branchAng) * (segDist * 0.7);
+                    ctx.moveTo(curX, curY);
+                    ctx.lineTo(bx2, by2);
+                    ctx.moveTo(curX, curY);
+                }
+            }
+            ctx.stroke();
+        });
+
+        // Концентрические кольца трещин вокруг эпицентра
+        const rings = modelId === 'samsung' ? [15, 28, 42] : [24, 48, 72];
+        rings.forEach(r => {
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, Math.random() * Math.PI, Math.random() * Math.PI + Math.PI * 0.85);
+            ctx.stroke();
+        });
+
+        ctx.restore();
     }
 
     buildIndoorSolidCasing(indoorGroup, width, height, depth) {
@@ -887,7 +1022,8 @@ class ACScene {
         const frontMat = new THREE.MeshStandardMaterial({
             map: this.indoorFasciaTexture,
             roughness: 0.16,
-            metalness: 0.04
+            metalness: 0.04,
+            side: THREE.DoubleSide
         });
         const frontMesh = new THREE.Mesh(frontGeo, frontMat);
         frontMesh.position.set(0, 0.05, depth / 2 + 0.005);
@@ -925,13 +1061,144 @@ class ACScene {
         this.displayCanvas = canvas;
         this.displayCtx = ctx;
 
-        this.updateDisplayText(text, '#00e5ff');
-
         const texture = new THREE.CanvasTexture(canvas);
         this.displayTexture = texture;
-        const mat = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
+
+        this.updateDigitalDisplay(text);
+
+        const mat = new THREE.MeshBasicMaterial({
+            map: texture,
+            transparent: true,
+            side: THREE.DoubleSide
+        });
         const geo = new THREE.PlaneGeometry(0.28, 0.14);
-        return new THREE.Mesh(geo, mat);
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.visible = this.state.xray && (this.state.power || this.isACDestroyed);
+        return mesh;
+    }
+
+    updateDigitalDisplay(customText) {
+        if (!this.displayCtx) return;
+        const ctx = this.displayCtx;
+        const w = 256;
+        const h = 128;
+
+        if (this.isACDestroyed) {
+            this.drawDamagedDigitalDisplay(ctx, w, h);
+            if (this.displayMesh) {
+                this.displayMesh.visible = this.state.xray;
+            }
+            return;
+        }
+
+        if (!this.state.power) {
+            ctx.clearRect(0, 0, w, h);
+            if (this.displayTexture) {
+                this.displayTexture.needsUpdate = true;
+            }
+            if (this.displayMesh) {
+                this.displayMesh.visible = false;
+            }
+            return;
+        }
+
+        const mode = this.state.mode || 'cool';
+        const color = mode === 'heat' ? '#ff7a00' : (mode === 'fan' ? '#10b981' : '#00e5ff');
+        const text = customText || `${this.state.targetTemp}°C`;
+
+        this.updateDisplayText(text, color);
+        if (this.displayMesh) {
+            this.displayMesh.visible = this.state.xray;
+        }
+    }
+
+    drawDamagedDigitalDisplay(ctx, w, h) {
+        ctx.clearRect(0, 0, w, h);
+
+        const cx = w / 2;
+        const cy = h / 2;
+
+        // 1. Обугленная темная рамочка
+        ctx.fillStyle = 'rgba(10, 12, 16, 0.96)';
+        ctx.beginPath();
+        this.drawRoundRect(ctx, 8, 8, w - 16, h - 16, 14);
+        ctx.fill();
+
+        // 2. Копоть от взрыва
+        const scorch = ctx.createRadialGradient(cx, cy, 6, cx, cy, 85);
+        scorch.addColorStop(0, 'rgba(15, 15, 18, 0.95)');
+        scorch.addColorStop(0.35, 'rgba(45, 22, 18, 0.8)');
+        scorch.addColorStop(0.75, 'rgba(65, 35, 25, 0.4)');
+        scorch.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = scorch;
+        ctx.beginPath();
+        this.drawRoundRect(ctx, 8, 8, w - 16, h - 16, 14);
+        ctx.fill();
+
+        ctx.strokeStyle = Math.random() > 0.4 ? '#ef4444' : '#f97316';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        // 3. Мерцающий поврежденный индикатор
+        const errorCodes = ['Er', 'E1', '--', '8-', 'Er'];
+        const errText = errorCodes[Math.floor(Math.random() * errorCodes.length)];
+        const isFlickerOn = this.isInitialExplosionFrame ? true : (Math.random() > 0.12);
+
+        if (isFlickerOn) {
+            ctx.save();
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = 'bold 50px -apple-system, BlinkMacSystemFont, "Segoe UI", monospace';
+            const isRed = Math.random() > 0.35;
+            ctx.shadowColor = isRed ? '#ef4444' : '#00e5ff';
+            ctx.shadowBlur = 18;
+            ctx.fillStyle = isRed ? '#f87171' : '#38bdf8';
+            ctx.fillText(errText, cx, cy);
+            ctx.restore();
+        }
+
+        // 4. Звездчатая паутина трещин на защитном стекле
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.88)';
+        ctx.lineWidth = 1.8;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        const angles = [0.2, 0.85, 1.55, 2.3, 3.1, 3.8, 4.55, 5.3, 6.0];
+        angles.forEach(baseAngle => {
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            let curX = cx;
+            let curY = cy;
+            const segments = 3 + Math.floor(Math.random() * 2);
+            const segDist = 10 + Math.random() * 8;
+
+            for (let s = 0; s < segments; s++) {
+                const devAngle = baseAngle + (Math.sin(s * 1.7) * 0.35);
+                curX += Math.cos(devAngle) * segDist;
+                curY += Math.sin(devAngle) * segDist;
+                ctx.lineTo(curX, curY);
+
+                if (s === 1 && Math.random() > 0.35) {
+                    const branchAng = devAngle + (Math.random() > 0.5 ? 0.65 : -0.65);
+                    ctx.lineTo(curX + Math.cos(branchAng) * 9, curY + Math.sin(branchAng) * 9);
+                    ctx.moveTo(curX, curY);
+                }
+            }
+            ctx.stroke();
+        });
+
+        [16, 32, 52].forEach(r => {
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, Math.random() * Math.PI, Math.random() * Math.PI + Math.PI * 0.85);
+            ctx.stroke();
+        });
+
+        ctx.restore();
+
+        if (this.displayTexture) {
+            this.displayTexture.needsUpdate = true;
+        }
     }
 
     updateDisplayText(text, colorHex) {
@@ -941,7 +1208,8 @@ class ACScene {
 
         // Фоновая рамка дисплея
         ctx.fillStyle = 'rgba(10, 15, 28, 0.9)';
-        ctx.roundRect(10, 10, 236, 108, 16);
+        ctx.beginPath();
+        this.drawRoundRect(ctx, 10, 10, 236, 108, 16);
         ctx.fill();
 
         ctx.strokeStyle = colorHex;
@@ -1985,6 +2253,15 @@ class ACScene {
         // Поворот лицом к центру комнаты
         this.creeperGroup.rotation.y = 0.42;
 
+        // Сохраняем исходные материалы для эффекта белого мерцания крипера
+        this.creeperHeadMaterials = headMaterials;
+        this.creeperGreenMat = greenMat;
+        this.creeperWhiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        this.creeperWhiteHeadMaterials = [
+            this.creeperWhiteMat, this.creeperWhiteMat, this.creeperWhiteMat,
+            this.creeperWhiteMat, this.creeperWhiteMat, this.creeperWhiteMat
+        ];
+
         // Кликабельные объекты для Raycaster
         this.creeperClickables = [this.creeperHead, this.creeperBody, ...this.creeperLegs];
         this.creeperClickables.forEach(mesh => {
@@ -1999,7 +2276,12 @@ class ACScene {
         this.creeperState = {
             isJumping: false,
             jumpProgress: 0,
-            bubbleTimer: 0
+            bubbleTimer: 0,
+            clickCount: 0,
+            lastClickTime: 0,
+            isPrimed: false,
+            fuseTimer: 0,
+            isExploded: false
         };
     }
 
@@ -2084,15 +2366,363 @@ class ACScene {
         this.speechBubbleTexture.needsUpdate = true;
     }
 
+    setCreeperWhite(isWhite) {
+        if (!this.creeperHead || !this.creeperBody) return;
+        if (isWhite) {
+            this.creeperHead.material = this.creeperWhiteHeadMaterials;
+            this.creeperBody.material = this.creeperWhiteMat;
+            this.creeperLegs.forEach(leg => leg.material = this.creeperWhiteMat);
+        } else {
+            this.creeperHead.material = this.creeperHeadMaterials;
+            this.creeperBody.material = this.creeperGreenMat;
+            this.creeperLegs.forEach(leg => leg.material = this.creeperGreenMat);
+        }
+    }
+
+    restoreCreeperMaterials() {
+        this.setCreeperWhite(false);
+    }
+
+    primeCreeper() {
+        this.creeperState.isPrimed = true;
+        this.creeperState.fuseTimer = 1.5;
+        this.creeperState.bubbleTimer = 2.0;
+        this.renderSpeechBubble("💥 Ш-Ш-Ш... СЕЙЧАС БУМКНЕТ! (3/3)");
+        if (window.soundEngine) {
+            window.soundEngine.playCreeperFuse();
+        }
+    }
+
+    explodeCreeper() {
+        this.creeperState.isPrimed = false;
+        this.creeperState.isExploded = true;
+        this.creeperGroup.visible = false;
+        this.restoreCreeperMaterials();
+
+        if (window.soundEngine) {
+            window.soundEngine.playCreeperExplosion();
+        }
+
+        // 1. Тряска камеры
+        this.cameraShakeIntensity = 0.52;
+        this.cameraShakeTimer = 0.85;
+
+        // 2. Вспышка экрана
+        const flashEl = document.getElementById('explosion-flash');
+        if (flashEl) {
+            flashEl.classList.add('active');
+            setTimeout(() => flashEl.classList.remove('active'), 250);
+        }
+
+        // 3. Воксельные частицы взрыва Minecraft
+        const blastCenter = this.creeperBasePos.clone().add(new THREE.Vector3(0, 0.45, 0));
+        this.spawnMinecraftExplosionParticles(blastCenter);
+
+        // 4. Физический разлет блоков кондиционера
+        this.disintegrateAC();
+    }
+
+    spawnMinecraftExplosionParticles(origin) {
+        if (!this.explosionParticlesGroup) {
+            this.explosionParticlesGroup = new THREE.Group();
+            this.scene.add(this.explosionParticlesGroup);
+        }
+        this.explosionParticles = [];
+
+        const colors = [0xffffff, 0xf1f5f9, 0x94a3b8, 0x475569, 0xf97316, 0xef4444, 0x1e293b];
+        const particleCount = 52;
+
+        for (let i = 0; i < particleCount; i++) {
+            const size = 0.08 + Math.random() * 0.16;
+            const geo = new THREE.BoxGeometry(size, size, size);
+            const col = colors[Math.floor(Math.random() * colors.length)];
+            const mat = new THREE.MeshBasicMaterial({
+                color: col,
+                transparent: true,
+                opacity: 0.95
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.copy(origin).add(new THREE.Vector3(
+                (Math.random() - 0.5) * 0.35,
+                (Math.random() - 0.5) * 0.35,
+                (Math.random() - 0.5) * 0.35
+            ));
+            this.explosionParticlesGroup.add(mesh);
+
+            // Случайный разлет во все стороны (сфера)
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(Math.random() * 2 - 1);
+            const speed = 2.5 + Math.random() * 6.0;
+            const vel = new THREE.Vector3(
+                Math.sin(phi) * Math.cos(theta) * speed,
+                Math.abs(Math.cos(phi)) * speed * 0.85 + 1.2,
+                Math.sin(phi) * Math.sin(theta) * speed
+            );
+
+            this.explosionParticles.push({
+                mesh,
+                vel,
+                rotVel: new THREE.Vector3((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12),
+                life: 0,
+                maxLife: 0.85 + Math.random() * 0.65,
+                initScale: 1.0
+            });
+        }
+    }
+
+    spawnFreonLeakSmoke() {
+        if (!this.explosionParticlesGroup) {
+            this.explosionParticlesGroup = new THREE.Group();
+            this.scene.add(this.explosionParticlesGroup);
+        }
+
+        // Облако белого пара в месте соединения трубок
+        const pipeCenter = new THREE.Vector3(0, 1.9, 0.03);
+        for (let i = 0; i < 24; i++) {
+            const size = 0.07 + Math.random() * 0.12;
+            const geo = new THREE.BoxGeometry(size, size, size);
+            const mat = new THREE.MeshBasicMaterial({
+                color: 0xe0f2fe,
+                transparent: true,
+                opacity: 0.85
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.copy(pipeCenter).add(new THREE.Vector3(
+                (Math.random() - 0.5) * 0.3,
+                (Math.random() - 0.5) * 0.3,
+                (Math.random() - 0.5) * 0.3
+            ));
+            this.explosionParticlesGroup.add(mesh);
+
+            const vel = new THREE.Vector3(
+                (Math.random() - 0.5) * 2.2,
+                Math.random() * 2.0 + 0.5,
+                (Math.random() - 0.5) * 2.2
+            );
+
+            this.explosionParticles.push({
+                mesh,
+                vel,
+                rotVel: new THREE.Vector3((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6),
+                life: 0,
+                maxLife: 1.6 + Math.random() * 0.8,
+                initScale: 1.0
+            });
+        }
+    }
+
+    disintegrateAC() {
+        this.isACDestroyed = true;
+        this.debrisList = [];
+
+        const blastOrigin = this.creeperBasePos.clone().add(new THREE.Vector3(0, 0.45, 0));
+        const itemsToDisintegrate = [];
+
+        // Детали внутреннего и внешнего блока в зависимости от режима рентгена
+        if (this.state.xray) {
+            if (this.indoorCaseMesh) itemsToDisintegrate.push(this.indoorCaseMesh);
+            if (this.displayMesh) itemsToDisintegrate.push(this.displayMesh);
+            if (this.animatedObjects.indoorFan) itemsToDisintegrate.push(this.animatedObjects.indoorFan);
+
+            if (this.outdoorCaseMesh) itemsToDisintegrate.push(this.outdoorCaseMesh);
+            if (this.animatedObjects.compressor) itemsToDisintegrate.push(this.animatedObjects.compressor);
+            if (this.animatedObjects.outdoorFanRotor) itemsToDisintegrate.push(this.animatedObjects.outdoorFanRotor);
+            if (this.outdoorFanWireGrill) itemsToDisintegrate.push(this.outdoorFanWireGrill);
+            if (this.expansionValveGroup) itemsToDisintegrate.push(this.expansionValveGroup);
+            if (this.reversingValveGroup) itemsToDisintegrate.push(this.reversingValveGroup);
+        } else {
+            if (this.indoorSolidCasing) {
+                [...this.indoorSolidCasing.children].forEach(child => itemsToDisintegrate.push(child));
+            }
+            if (this.animatedObjects.indoorFan) itemsToDisintegrate.push(this.animatedObjects.indoorFan);
+
+            if (this.outdoorSolidCasing) {
+                [...this.outdoorSolidCasing.children].forEach(child => itemsToDisintegrate.push(child));
+            }
+            if (this.animatedObjects.compressor) itemsToDisintegrate.push(this.animatedObjects.compressor);
+            if (this.animatedObjects.outdoorFanRotor) itemsToDisintegrate.push(this.animatedObjects.outdoorFanRotor);
+            if (this.expansionValveGroup) itemsToDisintegrate.push(this.expansionValveGroup);
+            if (this.reversingValveGroup) itemsToDisintegrate.push(this.reversingValveGroup);
+        }
+
+        itemsToDisintegrate.forEach(obj => {
+            if (!obj || !obj.parent) return;
+
+            // Запоминаем локальные координаты до переноса
+            obj.userData.origParent = obj.parent;
+            obj.userData.origPosition = obj.position.clone();
+            obj.userData.origRotation = obj.rotation.clone();
+            obj.userData.origScale = obj.scale.clone();
+
+            // Переносим объект в мировую сцену с сохранением мирового положения
+            const worldPos = new THREE.Vector3();
+            obj.getWorldPosition(worldPos);
+            this.scene.attach(obj);
+
+            // Направление взрывной волны от крипера
+            const blastDir = new THREE.Vector3().subVectors(worldPos, blastOrigin);
+            const dist = blastDir.length();
+            blastDir.normalize();
+
+            // Сила взрыва зависит от расстояния до эпицентра
+            const force = Math.max(2.8, 8.5 - dist * 0.7);
+
+            const velocity = new THREE.Vector3(
+                blastDir.x * force + (Math.random() - 0.5) * 1.6,
+                Math.random() * 4.2 + 3.8, // подброс вверх
+                blastDir.z * force + (Math.random() - 0.5) * 1.6
+            );
+
+            const angularVelocity = new THREE.Vector3(
+                (Math.random() - 0.5) * 8.0,
+                (Math.random() - 0.5) * 8.0,
+                (Math.random() - 0.5) * 8.0
+            );
+
+            this.debrisList.push({
+                obj,
+                velocity,
+                angularVelocity,
+                settled: false
+            });
+        });
+
+        // Полностью глушим звук кондиционера
+        if (window.soundEngine) {
+            window.soundEngine.silenceAC();
+        }
+
+        // Отключаем активные потоки воздуха и фреон, обнуляем скорости вентиляторов
+        this.physics.airflowIntensity = 0;
+        this.physics.refrigerantSpeed = 0;
+        this.physics.fanRpmCurrent = 0;
+        this.physics.fanRpmTarget = 0;
+        this.physics.indoorFanRpmCurrent = 0;
+        this.physics.indoorFanRpmTarget = 0;
+        if (this.refParticlesMesh) this.refParticlesMesh.visible = false;
+        if (this.indoorAirMesh) this.indoorAirMesh.visible = false;
+        if (this.outdoorAirMesh) this.outdoorAirMesh.visible = false;
+
+        // Повреждение и трещины индикатора внутреннего блока (для обоих типов дисплеев)
+        this.isInitialExplosionFrame = true;
+        this.updateIndoorFasciaDisplay();
+        this.updateDigitalDisplay();
+        this.isInitialExplosionFrame = false;
+
+        // Сноп электрических искр из разбитого дисплея
+        this.spawnElectricSparkBurst();
+
+        // Выпускаем облако фреона
+        this.spawnFreonLeakSmoke();
+
+        // Уведомляем интерфейс о взрыве
+        if (window.onCreeperExplosion) {
+            window.onCreeperExplosion();
+        }
+    }
+
+    spawnElectricSparkBurst() {
+        const targets = [];
+        if (this.state.xray && this.displayMesh) {
+            targets.push({ mesh: this.displayMesh, isDisplayMesh: true });
+        } else if (this.indoorFrontMesh) {
+            targets.push({ mesh: this.indoorFrontMesh, isDisplayMesh: false });
+        }
+        if (targets.length === 0) {
+            if (this.displayMesh) targets.push({ mesh: this.displayMesh, isDisplayMesh: true });
+            if (this.indoorFrontMesh) targets.push({ mesh: this.indoorFrontMesh, isDisplayMesh: false });
+        }
+
+        targets.forEach(({ mesh, isDisplayMesh }) => {
+            if (!mesh) return;
+            mesh.updateMatrixWorld(true);
+
+            let sparkOrigin;
+            if (isDisplayMesh) {
+                sparkOrigin = new THREE.Vector3(0, 0, 0.02).applyMatrix4(mesh.matrixWorld);
+            } else {
+                const localPos = (this.currentModelId === 'samsung')
+                    ? new THREE.Vector3(0.61, -0.17, 0.02)
+                    : new THREE.Vector3(0.57, 0.025, 0.02);
+                sparkOrigin = localPos.clone().applyMatrix4(mesh.matrixWorld);
+            }
+
+            const count = 5 + Math.floor(Math.random() * 6);
+            for (let i = 0; i < count; i++) {
+                const size = 0.012 + Math.random() * 0.01;
+                const sparkGeo = new THREE.BoxGeometry(size, size, size);
+                const isYellow = Math.random() > 0.35;
+                const sparkMat = new THREE.MeshBasicMaterial({
+                    color: isYellow ? 0xffea00 : 0x00e5ff,
+                    transparent: true,
+                    opacity: 1.0
+                });
+                const sparkMesh = new THREE.Mesh(sparkGeo, sparkMat);
+                sparkMesh.position.copy(sparkOrigin).add(new THREE.Vector3(
+                    (Math.random() - 0.5) * 0.06,
+                    (Math.random() - 0.5) * 0.06,
+                    (Math.random() - 0.5) * 0.06
+                ));
+                this.scene.add(sparkMesh);
+
+                const vel = new THREE.Vector3(
+                    (Math.random() - 0.5) * 2.2,
+                    Math.random() * 2.4 + 0.8,
+                    Math.random() * 2.0 + 0.5
+                );
+
+                this.electricSparks.push({
+                    mesh: sparkMesh,
+                    vel: vel,
+                    life: 0,
+                    maxLife: 0.22 + Math.random() * 0.2
+                });
+            }
+        });
+    }
+
+    restoreAirConditioner() {
+        if (!this.isACDestroyed) return;
+        this.isRestoring = true;
+        this.restoreProgress = 0;
+
+        // Фиксируем текущие мировые позиции обломков на полу для плавной интерполяции
+        this.debrisList.forEach(item => {
+            item.startPos = item.obj.position.clone();
+            item.startRot = item.obj.rotation.clone();
+        });
+    }
+
     onCreeperClicked() {
+        if (this.creeperState.isPrimed || this.creeperState.isExploded) return;
+
+        const now = performance.now();
+        if (now - this.creeperState.lastClickTime < 2500) {
+            this.creeperState.clickCount++;
+        } else {
+            this.creeperState.clickCount = 1;
+        }
+        this.creeperState.lastClickTime = now;
+
+        // Запуск последовательности детонации на 3-й быстрый клик
+        if (this.creeperState.clickCount >= 3) {
+            this.primeCreeper();
+            return;
+        }
+
         if (window.soundEngine) {
             window.soundEngine.playCreeperSound();
         }
 
-        // Запуск анимации прыжка и таймера реплики
+        // Анимация прыжка и фраза
         this.creeperState.isJumping = true;
         this.creeperState.jumpProgress = 0;
         this.creeperState.bubbleTimer = 3.6;
+
+        if (this.creeperState.clickCount === 2) {
+            this.renderSpeechBubble("⚠️ Ой-ой! Не тыкай так часто, а то зашиплю! (2/3)");
+            return;
+        }
 
         let phrasePool = [];
         if (!this.state.power) {
@@ -2572,11 +3202,12 @@ class ACScene {
             window.soundEngine.setPower(isOn);
         }
         if (this.displayMesh) {
-            this.displayMesh.visible = isOn;
+            this.displayMesh.visible = this.state.xray && (isOn || this.isACDestroyed);
         }
 
-        // Обновляем LED дисплей на корпусе Ballu Eco Smart
+        // Обновляем LED дисплей на корпусе и цифровой дисплей
         this.updateIndoorBalluDisplay();
+        this.updateDigitalDisplay();
     }
 
     setMode(mode) {
@@ -2585,6 +3216,7 @@ class ACScene {
         const color = mode === 'heat' ? '#ff7a00' : (mode === 'fan' ? '#10b981' : '#00e5ff');
         this.updateDisplayText(`${this.state.targetTemp}°C`, color);
         this.updateIndoorBalluDisplay();
+        this.updateDigitalDisplay();
 
         // Обновляем цвета трубок и хладагента
         this.updateMaterialColors();
@@ -2604,8 +3236,9 @@ class ACScene {
         const color = this.state.mode === 'heat' ? '#ff7a00' : '#00e5ff';
         this.updateDisplayText(`${this.state.targetTemp}°C`, color);
 
-        // Обновляем LED дисплей на корпусе Ballu Eco Smart
+        // Обновляем LED дисплей на корпусе и цифровой дисплей
         this.updateIndoorBalluDisplay();
+        this.updateDigitalDisplay();
 
         // Регулировка скорости компрессора в зависимости от разницы температур
         const diff = Math.abs(this.state.targetTemp - 25);
@@ -2632,9 +3265,14 @@ class ACScene {
     }
 
     toggleXray() {
+        if (this.isACDestroyed) return this.state.xray;
+        return this.setXRayMode();
+    }
+
+    setXRayMode() {
         this.state.xray = !this.state.xray;
 
-        // Показ/скрытие реалистичных сплошных корпусов Ballu
+        // Показ/скрытие реалистичных сплошных корпусов
         if (this.indoorSolidCasing) {
             this.indoorSolidCasing.visible = !this.state.xray;
         }
@@ -2655,6 +3293,12 @@ class ACScene {
             this.outdoorFanWireGrill.visible = this.state.xray;
         }
 
+        // Цифровой дисплей на каркасе (виден только в режиме Рентген при включенном питании или при аварии)
+        if (this.displayMesh) {
+            this.displayMesh.visible = this.state.xray && (this.state.power || this.isACDestroyed);
+        }
+
+        this.updateDigitalDisplay();
         return this.state.xray;
     }
 
@@ -2731,7 +3375,16 @@ class ACScene {
         }
 
         // 2. ФИЗИЧЕСКАЯ ИНЕРЦИЯ ВЕНТИЛЯТОРОВ, ПОТОКОВ ВОЗДУХА И ШТОРОК
-        if (!this.state.power) {
+        if (this.isACDestroyed) {
+            // Кондиционер разрушен: полная остановка вентиляторов и потоков
+            this.physics.fanRpmCurrent = 0;
+            this.physics.fanRpmTarget = 0;
+            this.physics.indoorFanRpmCurrent = 0;
+            this.physics.indoorFanRpmTarget = 0;
+            this.physics.airflowIntensity = 0;
+            this.physics.refrigerantSpeed = 0;
+            this.physics.louverAngle = 0;
+        } else if (!this.state.power) {
             // Инерция маховика: экспоненциальное торможение вентиляторов (~3.5 сек)
             const decelRate = 0.88;
             this.physics.fanRpmCurrent = Math.max(0, this.physics.fanRpmCurrent - this.physics.fanRpmCurrent * decelRate * delta);
@@ -2762,14 +3415,16 @@ class ACScene {
             this.physics.louverAngle += (targetOpen - this.physics.louverAngle) * delta * 1.5;
         }
 
-        // Вращение вентиляторов
+        // Вращение вентиляторов (только когда кондиционер цел)
         const spinDelta = effectiveDelta;
-        if (this.animatedObjects.indoorFan && this.physics.indoorFanRpmCurrent > 0.01) {
-            this.animatedObjects.indoorFan.rotation.x -= spinDelta * this.physics.indoorFanRpmCurrent;
-        }
-        if (this.animatedObjects.outdoorFanRotor && this.physics.fanRpmCurrent > 0.01) {
-            const fanDir = (this.currentModel && typeof this.currentModel.fanDirection === 'number') ? this.currentModel.fanDirection : 1;
-            this.animatedObjects.outdoorFanRotor.rotation.z += fanDir * spinDelta * this.physics.fanRpmCurrent;
+        if (!this.isACDestroyed) {
+            if (this.animatedObjects.indoorFan && this.physics.indoorFanRpmCurrent > 0.01) {
+                this.animatedObjects.indoorFan.rotation.x -= spinDelta * this.physics.indoorFanRpmCurrent;
+            }
+            if (this.animatedObjects.outdoorFanRotor && this.physics.fanRpmCurrent > 0.01) {
+                const fanDir = (this.currentModel && typeof this.currentModel.fanDirection === 'number') ? this.currentModel.fanDirection : 1;
+                this.animatedObjects.outdoorFanRotor.rotation.z += fanDir * spinDelta * this.physics.fanRpmCurrent;
+            }
         }
 
         // Положение направляющей шторки жалюзи (на хай-тек модели и на корпусе Ballu)
@@ -2780,8 +3435,8 @@ class ACScene {
             this.animatedObjects.solidIndoorLouver.rotation.x = this.physics.louverAngle;
         }
 
-        // Вибрация компрессора (пропорциональна текущей скорости)
-        if (this.animatedObjects.compressor) {
+        // Вибрация компрессора (пропорциональна текущей скорости, только когда цел)
+        if (this.animatedObjects.compressor && !this.isACDestroyed) {
             const compRatio = Math.min(1.5, this.physics.fanRpmCurrent / 25.0);
             const vib = Math.sin(time * 65) * 0.0015 * compRatio;
             this.animatedObjects.compressor.position.y = -0.08 + vib;
@@ -2807,8 +3462,8 @@ class ACScene {
             colAttr.needsUpdate = true;
         }
 
-        // 4. Анимация потоков воздуха (исчезновение/появление с инерцией)
-        const hasAirflow = this.physics.airflowIntensity > 0.008;
+        // 4. Анимация потоков воздуха (только при включенном кондиционере)
+        const hasAirflow = this.state.power && !this.isACDestroyed && (this.physics.airflowIntensity > 0.008);
 
         if (this.indoorAirMesh) {
             this.indoorAirMesh.visible = hasAirflow;
@@ -2868,60 +3523,82 @@ class ACScene {
             h.pulseRing.material.opacity = Math.max(0.05, 0.6 - (scale - 1.0) * 2.0);
         });
 
-        // 6. Анимация Крипера (реакция на климат, дрожь от холода, прыжки и реплики)
+        // 6. Анимация Крипера (взвод, мерцание, реакция на климат, дрожь, прыжки и реплики)
         if (this.creeperGroup && this.creeperState) {
-            let shiverX = 0;
-            let shiverZ = 0;
+            // Анимация взвода перед взрывом (Fuse)
+            if (this.creeperState.isPrimed) {
+                this.creeperState.fuseTimer -= delta;
+                const progress = Math.max(0, (1.5 - this.creeperState.fuseTimer) / 1.5);
 
-            if (this.state.power && this.state.mode === 'cool' && this.physics.airflowIntensity > 0.05) {
-                // Дрожь от холода в струе кондиционера
-                const coldFactor = Math.max(0.3, (30 - this.state.targetTemp) / 14); // 16°C -> 1.0, 30°C -> 0.3
-                const shiverIntensity = 0.016 * coldFactor * this.physics.airflowIntensity;
-                shiverX = Math.sin(time * 46) * shiverIntensity;
-                shiverZ = Math.cos(time * 42) * shiverIntensity;
+                // Надувание (swell) как в Minecraft
+                const swell = Math.pow(progress, 1.8) * 0.42;
+                this.creeperGroup.scale.set(1 + swell, 1 + swell * 1.35, 1 + swell);
 
-                // Голова забавно втягивается в плечи и дрожит
-                this.creeperHead.rotation.x = 0.12 + Math.sin(time * 44) * 0.04;
-                this.creeperHead.rotation.y = 0;
-                this.creeperBody.scale.y = 1.0;
-            } else if (this.state.power && this.state.mode === 'heat' && this.physics.airflowIntensity > 0.05) {
-                // Расслабленное дыхание и наслаждение теплом
-                this.creeperHead.rotation.x = -0.06 + Math.sin(time * 2.2) * 0.03;
-                this.creeperHead.rotation.y = Math.sin(time * 1.2) * 0.08;
-                this.creeperBody.scale.y = 1.0 + Math.sin(time * 2.2) * 0.025;
-            } else {
-                // Спокойное дыхание / idle
-                this.creeperHead.rotation.x = 0;
-                this.creeperHead.rotation.y = Math.sin(time * 0.9) * 0.16;
-                this.creeperBody.scale.y = 1.0;
-            }
+                // Белое мерцание с нарастающей частотой
+                const flashFreq = 16 + progress * 24;
+                const isWhite = Math.sin(progress * flashFreq * Math.PI) > 0;
+                this.setCreeperWhite(isWhite);
 
-            // Анимация прыжка при клике
-            let jumpY = 0;
-            if (this.creeperState.isJumping) {
-                this.creeperState.jumpProgress += delta * 2.6;
-                if (this.creeperState.jumpProgress >= 1.0) {
-                    this.creeperState.jumpProgress = 0;
-                    this.creeperState.isJumping = false;
-                } else {
-                    const jp = this.creeperState.jumpProgress;
-                    jumpY = Math.sin(jp * Math.PI) * 0.32;
-                    // Игривый поворот головы при прыжке
-                    this.creeperHead.rotation.z = Math.sin(jp * Math.PI * 2) * 0.35;
+                // Вибрация от закипающего пороха
+                const shiver = 0.025 * progress;
+                this.creeperGroup.position.set(
+                    this.creeperBasePos.x + (Math.random() - 0.5) * shiver,
+                    this.creeperBasePos.y,
+                    this.creeperBasePos.z + (Math.random() - 0.5) * shiver
+                );
+
+                if (this.creeperState.fuseTimer <= 0) {
+                    this.explodeCreeper();
                 }
-            } else {
-                this.creeperHead.rotation.z = 0;
-            }
+            } else if (!this.creeperState.isExploded) {
+                // Стандартная анимация дыхания / дрожи / прыжков (когда не взорван)
+                let shiverX = 0;
+                let shiverZ = 0;
 
-            this.creeperGroup.position.set(
-                this.creeperBasePos.x + shiverX,
-                this.creeperBasePos.y + jumpY,
-                this.creeperBasePos.z + shiverZ
-            );
+                if (this.state.power && this.state.mode === 'cool' && this.physics.airflowIntensity > 0.05) {
+                    const coldFactor = Math.max(0.3, (30 - this.state.targetTemp) / 14);
+                    const shiverIntensity = 0.016 * coldFactor * this.physics.airflowIntensity;
+                    shiverX = Math.sin(time * 46) * shiverIntensity;
+                    shiverZ = Math.cos(time * 42) * shiverIntensity;
+
+                    this.creeperHead.rotation.x = 0.12 + Math.sin(time * 44) * 0.04;
+                    this.creeperHead.rotation.y = 0;
+                    this.creeperBody.scale.y = 1.0;
+                } else if (this.state.power && this.state.mode === 'heat' && this.physics.airflowIntensity > 0.05) {
+                    this.creeperHead.rotation.x = -0.06 + Math.sin(time * 2.2) * 0.03;
+                    this.creeperHead.rotation.y = Math.sin(time * 1.2) * 0.08;
+                    this.creeperBody.scale.y = 1.0 + Math.sin(time * 2.2) * 0.025;
+                } else {
+                    this.creeperHead.rotation.x = 0;
+                    this.creeperHead.rotation.y = Math.sin(time * 0.9) * 0.16;
+                    this.creeperBody.scale.y = 1.0;
+                }
+
+                let jumpY = 0;
+                if (this.creeperState.isJumping) {
+                    this.creeperState.jumpProgress += delta * 2.6;
+                    if (this.creeperState.jumpProgress >= 1.0) {
+                        this.creeperState.jumpProgress = 0;
+                        this.creeperState.isJumping = false;
+                    } else {
+                        const jp = this.creeperState.jumpProgress;
+                        jumpY = Math.sin(jp * Math.PI) * 0.32;
+                        this.creeperHead.rotation.z = Math.sin(jp * Math.PI * 2) * 0.35;
+                    }
+                } else {
+                    this.creeperHead.rotation.z = 0;
+                }
+
+                this.creeperGroup.position.set(
+                    this.creeperBasePos.x + shiverX,
+                    this.creeperBasePos.y + jumpY,
+                    this.creeperBasePos.z + shiverZ
+                );
+            }
 
             // Анимация облачка реплик над головой
             if (this.speechBubbleSprite) {
-                if (this.creeperState.bubbleTimer > 0) {
+                if (this.creeperState.bubbleTimer > 0 && !this.creeperState.isExploded) {
                     this.creeperState.bubbleTimer -= delta;
                     const opacity = Math.min(1.0, this.creeperState.bubbleTimer * 1.8);
                     this.speechBubbleSprite.material.opacity = opacity;
@@ -2933,7 +3610,224 @@ class ACScene {
             }
         }
 
-        // 7. Рендеринг сцены
+        // 7. Тряска камеры (Screen shake)
+        if (this.cameraShakeTimer > 0) {
+            this.cameraShakeTimer -= delta;
+            const factor = Math.max(0, this.cameraShakeTimer / 0.85);
+            const shake = this.cameraShakeIntensity * factor;
+            this.camera.position.x += (Math.random() - 0.5) * shake;
+            this.camera.position.y += (Math.random() - 0.5) * shake;
+            this.camera.position.z += (Math.random() - 0.5) * shake;
+        }
+
+        // 8. Обновление воксельных частиц взрыва
+        if (this.explosionParticles && this.explosionParticles.length > 0) {
+            for (let i = this.explosionParticles.length - 1; i >= 0; i--) {
+                const p = this.explosionParticles[i];
+                p.life += delta;
+                if (p.life >= p.maxLife) {
+                    if (p.mesh.parent) p.mesh.parent.remove(p.mesh);
+                    if (p.mesh.geometry) p.mesh.geometry.dispose();
+                    this.explosionParticles.splice(i, 1);
+                    continue;
+                }
+                const normLife = p.life / p.maxLife;
+                p.vel.y -= 3.5 * delta;
+                p.vel.multiplyScalar(0.965);
+                p.mesh.position.addScaledVector(p.vel, delta);
+                p.mesh.rotation.x += p.rotVel.x * delta;
+                p.mesh.rotation.y += p.rotVel.y * delta;
+                p.mesh.rotation.z += p.rotVel.z * delta;
+
+                const currentScale = p.initScale * (1.0 + normLife * 1.8);
+                p.mesh.scale.set(currentScale, currentScale, currentScale);
+                p.mesh.material.opacity = Math.max(0, 0.95 * (1.0 - normLife));
+            }
+        }
+
+        // 9. Физика разлета и сборки обломков кондиционера
+        if (this.debrisList && this.debrisList.length > 0) {
+            if (this.isRestoring) {
+                // Плавная сборка деталей обратно на свои места
+                this.restoreProgress += delta / 1.15;
+                const t = Math.min(1.0, this.restoreProgress);
+                const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+                this.debrisList.forEach(item => {
+                    const origParent = item.obj.userData.origParent;
+                    const targetWorldPos = item.obj.userData.origPosition.clone();
+                    origParent.localToWorld(targetWorldPos);
+
+                    item.obj.position.lerpVectors(item.startPos, targetWorldPos, ease);
+                    item.obj.rotation.x = item.startRot.x + (item.obj.userData.origRotation.x - item.startRot.x) * ease;
+                    item.obj.rotation.y = item.startRot.y + (item.obj.userData.origRotation.y - item.startRot.y) * ease;
+                    item.obj.rotation.z = item.startRot.z + (item.obj.userData.origRotation.z - item.startRot.z) * ease;
+                });
+
+                if (t >= 1.0) {
+                    this.isRestoring = false;
+                    this.isACDestroyed = false;
+
+                    // Очищаем электрические искры
+                    if (this.electricSparks) {
+                        this.electricSparks.forEach(sp => {
+                            if (sp.mesh.parent) sp.mesh.parent.remove(sp.mesh);
+                            if (sp.mesh.geometry) sp.mesh.geometry.dispose();
+                            if (sp.mesh.material) sp.mesh.material.dispose();
+                        });
+                        this.electricSparks = [];
+                    }
+
+                    // Возвращаем все объекты обратно в родительские контейнеры
+                    this.debrisList.forEach(item => {
+                        const origParent = item.obj.userData.origParent;
+                        origParent.attach(item.obj);
+                        item.obj.position.copy(item.obj.userData.origPosition);
+                        item.obj.rotation.copy(item.obj.userData.origRotation);
+                        item.obj.scale.copy(item.obj.userData.origScale);
+                    });
+                    this.debrisList = [];
+
+                    // Восстанавливаем корректную видимость корпусов и дисплеев
+                    if (this.indoorSolidCasing) {
+                        this.indoorSolidCasing.visible = !this.state.xray;
+                    }
+                    if (this.outdoorSolidCasing) {
+                        this.outdoorSolidCasing.visible = !this.state.xray;
+                    }
+                    if (this.indoorCaseMesh) {
+                        this.indoorCaseMesh.visible = this.state.xray;
+                    }
+                    if (this.outdoorCaseMesh) {
+                        this.outdoorCaseMesh.visible = this.state.xray;
+                    }
+                    if (this.outdoorFanWireGrill) {
+                        this.outdoorFanWireGrill.visible = this.state.xray;
+                    }
+                    if (this.displayMesh) {
+                        this.displayMesh.visible = this.state.xray && this.state.power;
+                    }
+
+                    // Восстанавливаем фреон, потоки и вращение ТОЛЬКО если кондиционер включен
+                    if (this.state.power) {
+                        if (this.refParticlesMesh) this.refParticlesMesh.visible = true;
+                        if (this.indoorAirMesh) this.indoorAirMesh.visible = true;
+                        if (this.outdoorAirMesh) this.outdoorAirMesh.visible = true;
+                        this.physics.refrigerantSpeed = 1.0;
+                        this.physics.airflowIntensity = 1.0;
+                        const fanRpmPresets = [16, 25, 34, 46];
+                        this.physics.fanRpmTarget = fanRpmPresets[this.state.fanSpeed - 1] || 25;
+                        this.physics.indoorFanRpmTarget = this.physics.fanRpmTarget * 0.85;
+                        this.physics.fanRpmCurrent = this.physics.fanRpmTarget;
+                        this.physics.indoorFanRpmCurrent = this.physics.indoorFanRpmTarget;
+                        if (window.soundEngine) {
+                            window.soundEngine.setPower(true);
+                        }
+                    } else {
+                        if (this.refParticlesMesh) this.refParticlesMesh.visible = false;
+                        if (this.indoorAirMesh) this.indoorAirMesh.visible = false;
+                        if (this.outdoorAirMesh) this.outdoorAirMesh.visible = false;
+                        this.physics.refrigerantSpeed = 0.0;
+                        this.physics.airflowIntensity = 0.0;
+                        this.physics.fanRpmTarget = 0.0;
+                        this.physics.indoorFanRpmTarget = 0.0;
+                        this.physics.fanRpmCurrent = 0.0;
+                        this.physics.indoorFanRpmCurrent = 0.0;
+                        this.physics.louverAngle = 0.0;
+                    }
+
+                    // Возрождаем крипера
+                    this.creeperGroup.visible = true;
+                    this.creeperGroup.scale.set(1, 1, 1);
+                    this.restoreCreeperMaterials();
+                    this.creeperState.isExploded = false;
+                    this.creeperState.isPrimed = false;
+                    this.creeperState.clickCount = 0;
+                    this.creeperState.isJumping = true;
+                    this.creeperState.bubbleTimer = 4.2;
+                    this.renderSpeechBubble("✨ Ура! Кондиционер снова как новенький!");
+
+                    this.setModel(this.currentModelId);
+                    this.updateDigitalDisplay();
+
+                    if (typeof this.onRestoreComplete === 'function') {
+                        this.onRestoreComplete();
+                    }
+                    if (typeof window.onACRestored === 'function') {
+                        window.onACRestored();
+                    }
+                }
+            } else {
+                // Физическое падение и отскок обломков от пола
+                const floorY = -0.55;
+                this.debrisList.forEach(item => {
+                    if (item.settled) return;
+
+                    item.velocity.y -= 9.8 * delta;
+
+                    item.obj.position.x += item.velocity.x * delta;
+                    item.obj.position.y += item.velocity.y * delta;
+                    item.obj.position.z += item.velocity.z * delta;
+
+                    item.obj.rotation.x += item.angularVelocity.x * delta;
+                    item.obj.rotation.y += item.angularVelocity.y * delta;
+                    item.obj.rotation.z += item.angularVelocity.z * delta;
+
+                    if (item.obj.position.y <= floorY) {
+                        item.obj.position.y = floorY;
+                        item.velocity.y = -item.velocity.y * 0.28;
+                        item.velocity.x *= 0.72;
+                        item.velocity.z *= 0.72;
+                        item.angularVelocity.multiplyScalar(0.70);
+
+                        if (Math.abs(item.velocity.y) < 0.25 && Math.abs(item.velocity.x) < 0.1 && Math.abs(item.velocity.z) < 0.1) {
+                            item.settled = true;
+                        }
+                    }
+                });
+            }
+        }
+
+        // 10. Электрические искры поврежденного индикатора и мерцание дисплея
+        if (this.isACDestroyed) {
+            this.sparkTimer += delta;
+            this.flickerTimer += delta;
+
+            // Периодическое мерцание разбитого LED-экрана с кодами ошибок
+            if (this.flickerTimer > 0.16) {
+                this.flickerTimer = 0;
+                this.updateIndoorFasciaDisplay();
+                this.updateDigitalDisplay();
+            }
+
+            // Выброс снопа искр каждые 0.14 сек
+            if (this.sparkTimer > 0.14) {
+                this.sparkTimer = 0;
+                this.spawnElectricSparkBurst();
+            }
+        }
+
+        // Обновление физики искр короткого замыкания
+        if (this.electricSparks && this.electricSparks.length > 0) {
+            for (let i = this.electricSparks.length - 1; i >= 0; i--) {
+                const sp = this.electricSparks[i];
+                sp.life += delta;
+                if (sp.life >= sp.maxLife) {
+                    if (sp.mesh.parent) sp.mesh.parent.remove(sp.mesh);
+                    if (sp.mesh.geometry) sp.mesh.geometry.dispose();
+                    if (sp.mesh.material) sp.mesh.material.dispose();
+                    this.electricSparks.splice(i, 1);
+                    continue;
+                }
+                sp.vel.y -= 12.0 * delta; // гравитация
+                sp.mesh.position.addScaledVector(sp.vel, delta);
+                const norm = Math.max(0, 1.0 - (sp.life / sp.maxLife));
+                sp.mesh.scale.set(norm, norm, norm);
+                sp.mesh.material.opacity = norm;
+            }
+        }
+
+        // 11. Рендеринг сцены
         this.renderer.render(this.scene, this.camera);
     }
 
