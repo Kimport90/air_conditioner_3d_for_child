@@ -48,6 +48,42 @@ const AC_MODELS = {
         indoorPlasticMetalness: 0.05,
         indoorLouverColor: 0xffffff,
         indoorSlotColor: 0x94a3b8
+    },
+    midea: {
+        id: 'midea',
+        name: 'Midea Blanc',
+        brand: 'Midea',
+        remoteName: 'MIDEA BLANC',
+        fanDirection: 1, // CCW (против часовой стрелки)
+        indoorPlasticColor: 0xffffff, // Белоснежный глянец
+        indoorPlasticRoughness: 0.16,
+        indoorPlasticMetalness: 0.04,
+        indoorLouverColor: 0xffffff,
+        indoorSlotColor: 0x94a3b8
+    },
+    mitsubishi: {
+        id: 'mitsubishi',
+        name: 'Mitsubishi Electric Design',
+        brand: 'Mitsubishi',
+        remoteName: 'MITSUBISHI ELECTRIC',
+        fanDirection: -1, // CW (по часовой стрелке)
+        indoorPlasticColor: 0x828892, // Металлический серебристый титан
+        indoorPlasticRoughness: 0.24,
+        indoorPlasticMetalness: 0.42,
+        indoorLouverColor: 0x69707b,
+        indoorSlotColor: 0x334155
+    },
+    energolux: {
+        id: 'energolux',
+        name: 'Energolux Basel',
+        brand: 'Energolux',
+        remoteName: 'ENERGOLUX BASEL',
+        fanDirection: -1, // CW (по часовой стрелке)
+        indoorPlasticColor: 0xffffff, // Белоснежный
+        indoorPlasticRoughness: 0.18,
+        indoorPlasticMetalness: 0.04,
+        indoorLouverColor: 0xffffff,
+        indoorSlotColor: 0x94a3b8
     }
 };
 
@@ -548,6 +584,84 @@ class ACScene {
         this.updateIndoorFasciaDisplay();
     }
 
+        drawMitsubishiLogo(ctx, cx, cy, size = 28) {
+        ctx.save();
+        ctx.fillStyle = '#e60012'; // Фирменный красный цвет Mitsubishi
+        // Три ромба под углом 120 градусов, сходящиеся в центральной точке (cx, cy)
+        for (let i = 0; i < 3; i++) {
+            const baseAngle = -Math.PI / 2 + (i * 2 * Math.PI / 3);
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            const p1x = cx + Math.cos(baseAngle - Math.PI / 6) * size;
+            const p1y = cy + Math.sin(baseAngle - Math.PI / 6) * size;
+            const tipX = cx + Math.cos(baseAngle) * size * Math.sqrt(3);
+            const tipY = cy + Math.sin(baseAngle) * size * Math.sqrt(3);
+            const p2x = cx + Math.cos(baseAngle + Math.PI / 6) * size;
+            const p2y = cy + Math.sin(baseAngle + Math.PI / 6) * size;
+            ctx.lineTo(p1x, p1y);
+            ctx.lineTo(tipX, tipY);
+            ctx.lineTo(p2x, p2y);
+            ctx.closePath();
+            ctx.fill();
+        }
+        ctx.restore();
+    }
+
+    drawEnergoluxLogo(ctx, cx, cy, fontSize = 32) {
+        ctx.save();
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif`;
+        const text = 'Energolu';
+        const textMetrics = ctx.measureText(text);
+        const textW = textMetrics.width;
+
+        ctx.fillStyle = '#1e293b';
+        ctx.fillText(text, cx, cy);
+
+        // Красный квадратик со стилизованной буквой 'x'
+        const sqSize = fontSize * 0.88;
+        const sqX = cx + textW + 4;
+        const sqY = cy - sqSize / 2;
+        const r = sqSize * 0.2;
+
+        ctx.fillStyle = '#e11d48'; // Energolux red
+        ctx.beginPath();
+        this.drawRoundRect(ctx, sqX, sqY, sqSize, sqSize, r);
+        ctx.fill();
+
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = sqSize * 0.22;
+        ctx.lineCap = 'round';
+        const pad = sqSize * 0.26;
+        ctx.beginPath();
+        ctx.moveTo(sqX + pad, sqY + pad);
+        ctx.lineTo(sqX + sqSize - pad, sqY + sqSize - pad);
+        ctx.moveTo(sqX + sqSize - pad, sqY + pad);
+        ctx.lineTo(sqX + pad, sqY + sqSize - pad);
+        ctx.stroke();
+
+        ctx.restore();
+    }
+
+    drawMideaLogo(ctx, cx, cy, fontSize = 36, textColor = '#0091d5') {
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = `900 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif`;
+        ctx.fillStyle = textColor;
+        ctx.fillText('Midea', cx, cy);
+
+        // Фирменная дуга/ореол над логотипом Midea
+        ctx.strokeStyle = textColor;
+        ctx.lineWidth = Math.max(2.5, fontSize * 0.08);
+        ctx.beginPath();
+        ctx.arc(cx - fontSize * 0.38, cy - fontSize * 0.48, fontSize * 0.22, -Math.PI * 0.85, Math.PI * 0.15);
+        ctx.stroke();
+
+        ctx.restore();
+    }
+
     drawKentatsuIcon(ctx, cx, cy, radius = 18) {
         ctx.save();
         ctx.fillStyle = '#d9252a';
@@ -802,6 +916,156 @@ class ACScene {
                 ctx.restore();
             }
 
+                } else if (modelId === 'midea') {
+            // БЕЛОСНЕЖНЫЙ ГЛЯНЦЕВЫЙ MIDEA BLANC
+            const grad = ctx.createLinearGradient(0, 0, 0, h);
+            grad.addColorStop(0, '#ffffff');
+            grad.addColorStop(0.5, '#f8fafc');
+            grad.addColorStop(1, '#f1f5f9');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, w, h);
+
+            // Мягкий горизонтальный световой блик
+            const hlGrad = ctx.createLinearGradient(0, 80, 0, 180);
+            hlGrad.addColorStop(0, 'rgba(255, 255, 255, 0)');
+            hlGrad.addColorStop(0.5, 'rgba(0, 145, 213, 0.05)');
+            hlGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            ctx.fillStyle = hlGrad;
+            ctx.fillRect(0, 80, w, 100);
+
+            // Тонкая разделительная фаска над жалюзи
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(25, h - 35);
+            ctx.lineTo(w - 25, h - 35);
+            ctx.stroke();
+
+            // Логотип Midea внизу слева
+            this.drawMideaLogo(ctx, 110, h - 68, 38, '#0091d5');
+
+            // Надпись FULL DC INVERTER внизу справа
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText('FULL DC INVERTER', w - 80, h - 68);
+
+            // LED Дисплей (голубые цифры температуры, просвечивающие сквозь пластик)
+            if (this.isACDestroyed) {
+                this.drawDamagedDisplay(ctx, 'midea', w, h);
+            } else if (this.state.power) {
+                const tempStr = `${this.state.targetTemp}°`;
+                ctx.save();
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                ctx.font = 'bold 74px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                ctx.shadowColor = '#00a2e8';
+                ctx.shadowBlur = 20;
+                ctx.fillStyle = '#0091d5';
+                ctx.fillText(tempStr, w - 85, h / 2 - 25);
+                ctx.restore();
+            }
+
+        } else if (modelId === 'mitsubishi') {
+            // ПРЕМИАЛЬНЫЙ ТИТАНОВЫЙ МЕТАЛЛИК MITSUBISHI ELECTRIC DESIGN
+            const grad = ctx.createLinearGradient(0, 0, 0, h);
+            grad.addColorStop(0, '#6d7481');
+            grad.addColorStop(0.35, '#8c94a2');
+            grad.addColorStop(0.5, '#9da5b3');
+            grad.addColorStop(0.65, '#828997');
+            grad.addColorStop(1, '#5f6572');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, w, h);
+
+            // Металлический горизонтальный блик
+            const hlGrad = ctx.createLinearGradient(0, 110, 0, 210);
+            hlGrad.addColorStop(0, 'rgba(255, 255, 255, 0)');
+            hlGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.12)');
+            hlGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            ctx.fillStyle = hlGrad;
+            ctx.fillRect(0, 110, w, 100);
+
+            // Строгая тонкая разделительная фаска
+            ctx.strokeStyle = '#4b5260';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(25, h - 35);
+            ctx.lineTo(w - 25, h - 35);
+            ctx.stroke();
+
+            // Красная эмблема Mitsubishi по центру
+            this.drawMitsubishiLogo(ctx, w / 2, h / 2 - 14, 22);
+
+            // Надпись MITSUBISHI ELECTRIC под эмблемой
+            ctx.fillStyle = '#1e242d';
+            ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText('MITSUBISHI ELECTRIC', w / 2, h / 2 + 16);
+
+            // Лаконичный серебристо-белый LED дисплей справа
+            if (this.isACDestroyed) {
+                this.drawDamagedDisplay(ctx, 'mitsubishi', w, h);
+            } else if (this.state.power) {
+                const tempStr = `${this.state.targetTemp}°`;
+                ctx.save();
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                ctx.font = 'bold 72px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                ctx.shadowColor = '#ffffff';
+                ctx.shadowBlur = 18;
+                ctx.fillStyle = '#f8fafc';
+                ctx.fillText(tempStr, w - 85, h / 2 - 25);
+                ctx.restore();
+            }
+
+        } else if (modelId === 'energolux') {
+            // ЭЛЕГАНТНЫЙ БЕЛЫЙ КОРПУС ENERGOLUX BASEL
+            const grad = ctx.createLinearGradient(0, 0, 0, h);
+            grad.addColorStop(0, '#ffffff');
+            grad.addColorStop(0.5, '#fbfcfe');
+            grad.addColorStop(1, '#f1f5f9');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, w, h);
+
+            // Разделительная фаска над жалюзи
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(25, h - 35);
+            ctx.lineTo(w - 25, h - 35);
+            ctx.stroke();
+
+            // Логотип Energolux по центру внизу
+            const logoW = 180;
+            this.drawEnergoluxLogo(ctx, w / 2 - logoW / 2, h - 68, 28);
+
+            // Надпись SWISS DESIGN слева внизу
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText('SWISS DESIGN', 75, h - 68);
+
+            // Надпись DC INVERTER справа внизу
+            ctx.textAlign = 'right';
+            ctx.fillText('DC INVERTER', w - 75, h - 68);
+
+            // Скрытый мягкий LED дисплей по центру (фирменная фишка Energolux)
+            if (this.isACDestroyed) {
+                this.drawDamagedDisplay(ctx, 'energolux', w, h);
+            } else if (this.state.power) {
+                const tempStr = `${this.state.targetTemp}°`;
+                ctx.save();
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.font = 'bold 76px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                ctx.shadowColor = '#38bdf8';
+                ctx.shadowBlur = 20;
+                ctx.fillStyle = '#0284c7';
+                ctx.fillText(tempStr, w / 2, h / 2 - 25);
+                ctx.restore();
+            }
+
         } else {
             // BALLU ECO SMART (оригинальный)
             ctx.fillStyle = '#ffffff';
@@ -882,8 +1146,12 @@ class ACScene {
             ctx.strokeStyle = '#ef4444';
             ctx.lineWidth = 1.5;
             ctx.stroke();
+        } else if (modelId === 'energolux') {
+            cx = w / 2;
+            cy = h / 2 - 25;
+            fontSize = 72;
         } else {
-            // Для LG, Kentatsu, Ballu центрируем по области LED индикатора (w - 145)
+            // Для LG, Kentatsu, Ballu, Midea, Mitsubishi центрируем по области LED индикатора (w - 145)
             cx = w - 145;
             cy = h / 2 - 25;
             fontSize = 72;
@@ -1435,6 +1703,59 @@ class ACScene {
         // ----------------------------------------------------
         // ЛЕВАЯ ЧАСТЬ: КРУГЛОЕ ВЫХОДНОЕ ОКНО СО СПИРАЛЬНОЙ РЕШЕТКОЙ
         // ----------------------------------------------------
+        if (modelId === 'mitsubishi') {
+            // ФИРМЕННАЯ ПРЯМОУГОЛЬНАЯ РЕШЕТКА MITSUBISHI ELECTRIC С ВЕРТИКАЛЬНЫМИ ЛАМЕЛЯМИ
+            const gx = 85;
+            const gy = 80;
+            const gw = 580;
+            const gh = 556;
+            const gr = 18;
+
+            ctx.save();
+            ctx.beginPath();
+            this.drawRoundRect(ctx, gx, gy, gw, gh, gr);
+            ctx.clip();
+
+            // Очищаем прямоугольник в прозрачность, чтобы видеть вращающийся 3D-пропеллер!
+            ctx.clearRect(gx, gy, gw, gh);
+
+            // Тонкие вертикальные защитные ламели
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 5;
+            for (let x = gx + 16; x < gx + gw - 10; x += 16) {
+                ctx.beginPath();
+                ctx.moveTo(x, gy + 4);
+                ctx.lineTo(x, gy + gh - 4);
+                ctx.stroke();
+            }
+
+            // 3 горизонтальные силовые поперечины
+            [gy + gh * 0.25, gy + gh * 0.50, gy + gh * 0.75].forEach(y => {
+                ctx.strokeStyle = '#cbd5e1';
+                ctx.lineWidth = 7;
+                ctx.beginPath();
+                ctx.moveTo(gx, y);
+                ctx.lineTo(gx + gw, y);
+                ctx.stroke();
+            });
+
+            ctx.restore();
+
+            // Внешняя окантовка прямоугольной решетки
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            this.drawRoundRect(ctx, gx, gy, gw, gh, gr);
+            ctx.stroke();
+
+            // Боковые вентиляционные прорези на левой стороне корпуса (как на фото)
+            for (let ly = 130; ly < 580; ly += 24) {
+                ctx.fillStyle = '#cbd5e1';
+                ctx.beginPath();
+                this.drawRoundRect(ctx, 24, ly, 42, 10, 5);
+                ctx.fill();
+            }
+        } else {
         const cx = 389; // сопоставлено с положением вентилятора (-0.18м)
         const cy = 358;
         const radius = 265;
@@ -1495,7 +1816,8 @@ class ACScene {
         ctx.arc(cx, cy, radius, 0, Math.PI * 2);
         ctx.stroke();
 
-        // ----------------------------------------------------
+                }
+// ----------------------------------------------------
         // ПРАВАЯ ЧАСТЬ: ФИРМЕННЫЙ ДИЗАЙН И ЛОГОТИП БРЕНДА
         // ----------------------------------------------------
         if (modelId === 'lg') {
@@ -1638,6 +1960,116 @@ class ACScene {
             ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, sans-serif';
             ctx.textAlign = 'center';
             ctx.fillText('YUKI INVERTER', 840, 590);
+
+                } else if (modelId === 'midea') {
+            // ДИЗАЙН ВНЕШНЕГО БЛОКА MIDEA BLANC
+            // Штамповка сервисной панели справа
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            this.drawRoundRect(ctx, 690, 60, 300, 596, 24);
+            ctx.stroke();
+
+            // Фирменный голубой шильдик Midea справа вверху
+            const bx = 720, by = 90, bw = 240, bh = 130;
+            ctx.fillStyle = '#0091d5'; // Midea Blue
+            ctx.beginPath();
+            this.drawRoundRect(ctx, bx, by, bw, bh, 18);
+            ctx.fill();
+
+            // Белая надпись Midea внутри шильдика
+            this.drawMideaLogo(ctx, bx + bw / 2, by + bh / 2, 54, '#ffffff');
+
+            // 3 горизонтальные вентиляционные штампованные прорези под логотипом
+            [270, 325, 380].forEach(sy => {
+                ctx.fillStyle = '#e2e8f0';
+                ctx.beginPath();
+                this.drawRoundRect(ctx, 730, sy, 220, 20, 10);
+                ctx.fill();
+
+                ctx.fillStyle = '#cbd5e1';
+                ctx.beginPath();
+                this.drawRoundRect(ctx, 734, sy + 4, 212, 7, 3);
+                ctx.fill();
+            });
+
+            // Надпись INVERTER QUATTRO внизу
+            ctx.fillStyle = '#475569';
+            ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('INVERTER QUATTRO', 840, 520);
+
+        } else if (modelId === 'mitsubishi') {
+            // ДИЗАЙН ВНЕШНЕГО БЛОКА MITSUBISHI ELECTRIC
+            // Штамповка сервисной панели справа
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            this.drawRoundRect(ctx, 690, 60, 300, 596, 24);
+            ctx.stroke();
+
+            // Красная эмблема Mitsubishi (3 ромба / трилистник)
+            const mx = 840, my = 175;
+            this.drawMitsubishiLogo(ctx, mx, my, 34);
+
+            // Фирменная надпись MITSUBISHI ELECTRIC под логотипом
+            ctx.fillStyle = '#1e293b';
+            ctx.font = '900 32px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('MITSUBISHI', mx, my + 65);
+
+            ctx.font = '900 24px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+            ctx.fillText('ELECTRIC', mx, my + 102);
+
+            // Рельефные вентиляционные выштамповки
+            [350, 410, 470].forEach(sy => {
+                ctx.fillStyle = '#e2e8f0';
+                ctx.beginPath();
+                this.drawRoundRect(ctx, 735, sy, 210, 18, 9);
+                ctx.fill();
+
+                ctx.fillStyle = '#cbd5e1';
+                ctx.beginPath();
+                this.drawRoundRect(ctx, 738, sy + 3, 204, 6, 3);
+                ctx.fill();
+            });
+
+            // Надпись INVERTER внизу
+            ctx.fillStyle = '#64748b';
+            ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('INVERTER', mx, 570);
+
+        } else if (modelId === 'energolux') {
+            // ДИЗАЙН ВНЕШНЕГО БЛОКА ENERGOLUX BASEL
+            // Выпуклая крышка вентилей сервисной панели
+            const vx = 705, vy = 85, vw = 270, vh = 540;
+            ctx.fillStyle = '#eef2f6';
+            ctx.beginPath();
+            this.drawRoundRect(ctx, vx, vy, vw, vh, 20);
+            ctx.fill();
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+
+            // Логотип Energolux с красным квадратом
+            const elX = vx + 22, elY = vy + 60;
+            this.drawEnergoluxLogo(ctx, elX, elY, 32);
+
+            // Рельефные горизонтальные ребра жесткости
+            [230, 290, 350, 410].forEach(ry => {
+                ctx.fillStyle = '#e2e8f0';
+                ctx.beginPath();
+                this.drawRoundRect(ctx, vx + 25, ry, vw - 50, 16, 8);
+                ctx.fill();
+            });
+
+            // Надпись SMART INVERTER внизу панели
+            ctx.fillStyle = '#64748b';
+            ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('DC INVERTER', vx + vw / 2, vy + vh - 45);
 
         } else {
             // BALLU DC INVERTER
@@ -2643,6 +3075,8 @@ class ACScene {
             } else {
                 const localPos = (this.currentModelId === 'samsung')
                     ? new THREE.Vector3(0.61, -0.17, 0.02)
+                    : (this.currentModelId === 'energolux')
+                    ? new THREE.Vector3(0.0, 0.025, 0.02)
                     : new THREE.Vector3(0.57, 0.025, 0.02);
                 sparkOrigin = localPos.clone().applyMatrix4(mesh.matrixWorld);
             }

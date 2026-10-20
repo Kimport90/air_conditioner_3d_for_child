@@ -12,12 +12,22 @@ document.addEventListener('DOMContentLoaded', () => {
         lg: 'LG DUAL INVERTER',
         samsung: 'SAMSUNG WINDFREE',
         kentatsu: 'KENTATSU YUKI',
-        ballu: 'BALLU ECO SMART'
+        ballu: 'BALLU ECO SMART',
+        midea: 'MIDEA BLANC',
+        mitsubishi: 'MITSUBISHI ELECTRIC',
+        energolux: 'ENERGOLUX BASEL'
     };
 
     function updateRemoteBrand(modelId) {
         if (remoteBrandLabel) {
             remoteBrandLabel.textContent = modelBrandNames[modelId] || 'AIR REMOTE';
+        }
+        const remoteEl = document.getElementById('remote-control');
+        if (remoteEl) {
+            remoteEl.classList.remove('remote-theme-mitsubishi', 'remote-theme-energolux', 'remote-theme-midea');
+            if (['mitsubishi', 'energolux', 'midea'].includes(modelId)) {
+                remoteEl.classList.add(`remote-theme-${modelId}`);
+            }
         }
     }
 

@@ -440,6 +440,138 @@ body, html {
     padding: 8px;
 }
 
+/* Тематические стили пультов под бренды */
+
+/* 1. MITSUBISHI ELECTRIC: Премиальный черный строгий пульт с красным акцентом */
+.remote-control.remote-theme-mitsubishi {
+    background: rgba(18, 20, 26, 0.95);
+    border: 2px solid rgba(230, 0, 18, 0.4);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.8), inset 0 1px 1px rgba(255, 255, 255, 0.08);
+}
+.remote-control.remote-theme-mitsubishi.collapsed {
+    border-color: rgba(230, 0, 18, 0.85);
+    box-shadow: 0 0 20px rgba(230, 0, 18, 0.5), 0 8px 32px rgba(0, 0, 0, 0.8);
+}
+.remote-control.remote-theme-mitsubishi #remote-brand-label {
+    color: #f1f5f9;
+    letter-spacing: 0.8px;
+}
+.remote-control.remote-theme-mitsubishi .remote-screen {
+    background: #090b0e;
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.9);
+}
+.remote-control.remote-theme-mitsubishi .temp-digits {
+    color: #f8fafc;
+    text-shadow: 0 0 12px rgba(255, 255, 255, 0.45);
+}
+.remote-control.remote-theme-mitsubishi .mode-badge {
+    color: #ef4444;
+}
+.remote-control.remote-theme-mitsubishi .r-btn {
+    background: rgba(30, 35, 45, 0.9);
+    border-color: rgba(255, 255, 255, 0.12);
+    color: #e2e8f0;
+}
+.remote-control.remote-theme-mitsubishi .r-btn:hover {
+    background: rgba(45, 52, 65, 0.95);
+    border-color: rgba(230, 0, 18, 0.4);
+}
+.remote-control.remote-theme-mitsubishi .r-btn.temp-btn {
+    color: #ef4444;
+}
+
+/* 2. ENERGOLUX: Белый корпус с теплым янтарно-оранжевым LCD дисплеем */
+.remote-control.remote-theme-energolux {
+    background: rgba(248, 250, 252, 0.94);
+    border: 2px solid rgba(245, 158, 11, 0.5);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), inset 0 1px 1px rgba(255, 255, 255, 0.8);
+}
+.remote-control.remote-theme-energolux.collapsed {
+    border-color: rgba(245, 158, 11, 0.85);
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.5), 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+.remote-control.remote-theme-energolux #remote-brand-label {
+    color: #1e293b;
+    font-weight: 800;
+}
+.remote-control.remote-theme-energolux .btn-collapse-remote {
+    color: #475569;
+}
+.remote-control.remote-theme-energolux .remote-screen {
+    background: #2b1704;
+    border-color: #f59e0b;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.8), 0 0 14px rgba(245, 158, 11, 0.25);
+}
+.remote-control.remote-theme-energolux .screen-top,
+.remote-control.remote-theme-energolux .screen-bottom {
+    color: #d97706;
+}
+.remote-control.remote-theme-energolux .temp-digits {
+    color: #fbbf24;
+    text-shadow: 0 0 16px rgba(245, 158, 11, 0.85);
+}
+.remote-control.remote-theme-energolux .mode-badge {
+    color: #f59e0b;
+}
+.remote-control.remote-theme-energolux .fan-bar.active {
+    background: #f59e0b;
+}
+.remote-control.remote-theme-energolux .r-btn {
+    background: #e2e8f0;
+    border-color: #cbd5e1;
+    color: #1e293b;
+}
+.remote-control.remote-theme-energolux .r-btn:hover {
+    background: #cbd5e1;
+    border-color: #94a3b8;
+}
+.remote-control.remote-theme-energolux .r-btn.temp-btn {
+    color: #d97706;
+}
+
+/* 3. MIDEA: Белый глянцевый корпус с небесно-голубыми элементами */
+.remote-control.remote-theme-midea {
+    background: rgba(255, 255, 255, 0.95);
+    border: 2px solid rgba(0, 145, 213, 0.55);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+}
+.remote-control.remote-theme-midea.collapsed {
+    border-color: rgba(0, 145, 213, 0.85);
+    box-shadow: 0 0 20px rgba(0, 145, 213, 0.5), 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+.remote-control.remote-theme-midea #remote-brand-label {
+    color: #0091d5;
+    font-weight: 800;
+}
+.remote-control.remote-theme-midea .btn-collapse-remote {
+    color: #64748b;
+}
+.remote-control.remote-theme-midea .remote-screen {
+    background: #031525;
+    border-color: #0091d5;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.8), 0 0 12px rgba(0, 145, 213, 0.25);
+}
+.remote-control.remote-theme-midea .temp-digits {
+    color: #38bdf8;
+    text-shadow: 0 0 14px rgba(0, 145, 213, 0.8);
+}
+.remote-control.remote-theme-midea .mode-badge {
+    color: #00a2e8;
+}
+.remote-control.remote-theme-midea .r-btn {
+    background: #f1f5f9;
+    border-color: #e2e8f0;
+    color: #1e293b;
+}
+.remote-control.remote-theme-midea .r-btn:hover {
+    background: #e2e8f0;
+    border-color: #0091d5;
+}
+.remote-control.remote-theme-midea .r-btn.temp-btn {
+    color: #0091d5;
+}
+
 /* Легенда цветов (Слева внизу) */
 .flow-legend {
     position: absolute;
