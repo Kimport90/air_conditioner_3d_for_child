@@ -1,6 +1,19 @@
 // scene.js - 3D Визуализация Сплит-системы Кондиционера на Three.js
 
 const AC_MODELS = {
+    lg_cassette: {
+        id: 'lg_cassette',
+        name: 'LG Cassette Dual Fan',
+        brand: 'LG',
+        remoteName: 'LG MULTI V CASSETTE',
+        type: 'cassette',
+        fanDirection: 1, // CCW (против часовой стрелки для обоих уличных пропеллеров)
+        indoorPlasticColor: 0xffffff,
+        indoorPlasticRoughness: 0.16,
+        indoorPlasticMetalness: 0.04,
+        indoorLouverColor: 0xffffff,
+        indoorSlotColor: 0x334155
+    },
     lg: {
         id: 'lg',
         name: 'LG Dual Inverter',
@@ -204,6 +217,10 @@ class ACScene {
         this.buildIndoorUnit();
         this.buildOutdoorUnit();
         this.buildPiping();
+        this.buildCassetteIndoorUnit();
+        this.buildDualFanOutdoorUnit();
+        this.buildCassettePiping();
+        this.buildCassetteAirflow();
         this.buildCreeper();
         this.setupRefrigerantCircuit();
         this.setupAirflowParticles();
@@ -2539,6 +2556,25 @@ class ACScene {
 
         // 4. Обновляем лопасти вентилятора под направление вращения
         this.updateOutdoorFanBlades(this.currentModel.fanDirection === -1);
+
+        const isCassette = (modelId === 'lg_cassette');
+
+        // Переключение видимости блоков между стандартным сплитом и 4-Way кассетой
+        if (this.indoorGroup) this.indoorGroup.visible = !isCassette;
+        if (this.indoorCassetteGroup) this.indoorCassetteGroup.visible = isCassette;
+
+        if (this.outdoorGroup) this.outdoorGroup.visible = !isCassette;
+        if (this.outdoorDualGroup) this.outdoorDualGroup.visible = isCassette;
+
+        if (this.pipeGroup) this.pipeGroup.visible = !isCassette;
+        if (this.cassettePipeGroup) this.cassettePipeGroup.visible = isCassette;
+
+        // Потоки воздуха
+        if (this.indoorAirMesh) this.indoorAirMesh.visible = !isCassette && this.state.power;
+        if (this.outdoorAirMesh) this.outdoorAirMesh.visible = !isCassette && this.state.power;
+
+        if (this.cassetteIndoorAirMesh) this.cassetteIndoorAirMesh.visible = isCassette && this.state.power;
+        if (this.cassetteOutdoorAirMesh) this.cassetteOutdoorAirMesh.visible = isCassette && this.state.power;
     }
 
     buildPiping() {
@@ -3103,6 +3139,44 @@ class ACScene {
         if (this.reversingValveGroup) itemsToDisintegrate.push(this.reversingValveGroup);
         if (this.outdoorBracket1) itemsToDisintegrate.push(this.outdoorBracket1);
         if (this.outdoorBracket2) itemsToDisintegrate.push(this.outdoorBracket2);
+
+        // Разрушение кассетного внутреннего блока и двухвентиляторного внешнего блока
+        if (this.currentModelId === 'lg_cassette') {
+            if (this.cassetteChassisMesh) itemsToDisintegrate.push(this.cassetteChassisMesh);
+            if (this.cassettePanelMesh) itemsToDisintegrate.push(this.cassettePanelMesh);
+            if (this.cassetteIntakeGrill) itemsToDisintegrate.push(this.cassetteIntakeGrill);
+            if (this.cassetteLouvers) {
+                this.cassetteLouvers.forEach(l => itemsToDisintegrate.push(l));
+            }
+            if (this.cassetteTurboFan) itemsToDisintegrate.push(this.cassetteTurboFan);
+            if (this.cassetteMotorMesh) itemsToDisintegrate.push(this.cassetteMotorMesh);
+            if (this.cassetteEvaporatorGroup) itemsToDisintegrate.push(this.cassetteEvaporatorGroup);
+            if (this.cassetteDrainTray) itemsToDisintegrate.push(this.cassetteDrainTray);
+            if (this.cassetteDrainPump) itemsToDisintegrate.push(this.cassetteDrainPump);
+
+            if (this.dualBracket1) itemsToDisintegrate.push(this.dualBracket1);
+            if (this.dualBracket2) itemsToDisintegrate.push(this.dualBracket2);
+            if (this.dualBackMesh) itemsToDisintegrate.push(this.dualBackMesh);
+            if (this.dualLeftMesh) itemsToDisintegrate.push(this.dualLeftMesh);
+            if (this.dualRightMesh) itemsToDisintegrate.push(this.dualRightMesh);
+            if (this.dualTopMesh) itemsToDisintegrate.push(this.dualTopMesh);
+            if (this.dualBotMesh) itemsToDisintegrate.push(this.dualBotMesh);
+            if (this.dualFrontMesh) itemsToDisintegrate.push(this.dualFrontMesh);
+            if (this.dualFanRotors) {
+                this.dualFanRotors.forEach(r => itemsToDisintegrate.push(r));
+            }
+            if (this.dualFanStators) {
+                this.dualFanStators.forEach(s => itemsToDisintegrate.push(s));
+            }
+            if (this.dualCondenserGroup) itemsToDisintegrate.push(this.dualCondenserGroup);
+            if (this.dualCompressorGroup) itemsToDisintegrate.push(this.dualCompressorGroup);
+            if (this.dualExpansionValveGroup) itemsToDisintegrate.push(this.dualExpansionValveGroup);
+            if (this.dualReversingValveGroup) itemsToDisintegrate.push(this.dualReversingValveGroup);
+
+            if (this.cassettePipingMeshes) {
+                this.cassettePipingMeshes.forEach(p => itemsToDisintegrate.push(p));
+            }
+        }
 
         // Все разлетающиеся детали делаем видимыми
         itemsToDisintegrate.forEach(obj => {
@@ -3727,8 +3801,33 @@ class ACScene {
     }
 
     selectHotspot(id) {
-        const item = this.hotspotData.find(h => h.id === id);
-        if (!item) return;
+        let baseItem = this.hotspotData.find(h => h.id === id);
+        if (!baseItem) return;
+
+        let item = Object.assign({}, baseItem);
+
+        // Динамическая адаптация описаний узлов и ракурса камеры для кассетного кондиционера
+        if (this.currentModelId === 'lg_cassette') {
+            if (id === 'indoorFan') {
+                item.title = '🌀 Центробежный 3D Turbo вентилятор';
+                item.subtitle = 'Засасывает воздух снизу и разбрасывает на 360°';
+                item.desc = 'В отличие от настенных блоков с длинным барабаном, в кассете установлена мощная центробежная турбина! Она вращается вокруг вертикальной оси, затягивает комнатный воздух снизу через фильтр и центробежной силой разгоняет его во все 4 стороны сквозь круговой радиатор!';
+                item.camPos = new THREE.Vector3(-1.6, 2.3, 1.1);
+                item.target = new THREE.Vector3(-1.6, 3.2, 0.0);
+            } else if (id === 'evaporator') {
+                item.title = '❄️ Круговой 4-сторонний испаритель';
+                item.subtitle = 'Окружает турбину со всех четырех сторон';
+                item.desc = 'Этот радиатор образует сплошной замкнутый контур вокруг центробежного вентилятора. Воздух проходит сквозь сотни ледяных алюминиевых пластинок, мгновенно остывает и выходит в комнату сразу через 4 жалюзи — равномерно охлаждая всё помещение!';
+                item.camPos = new THREE.Vector3(-1.6, 3.8, 1.4);
+                item.target = new THREE.Vector3(-1.6, 3.2, 0.0);
+            } else if (id === 'outdoorFan') {
+                item.title = '🌪️ Два уличных пропеллера (LG Dual Fan)';
+                item.subtitle = 'Удвоенная производительность сброса тепла';
+                item.desc = 'Здесь работают сразу два мощных уличных вентилятора, расположенных друг над другом! Кассетный кондиционер охлаждает большие офисы и залы, поэтому ему нужен гигантский радиатор и сразу два пропеллера, чтобы выбрасывать на улицу в 2 раза больше тепла!';
+                item.camPos = new THREE.Vector3(1.8, 1.35, 2.1);
+                item.target = new THREE.Vector3(1.8, 1.35, 0.1);
+            }
+        }
 
         this.state.activeNodeId = id;
 
@@ -3768,6 +3867,9 @@ class ACScene {
         if (window.soundEngine) {
             window.soundEngine.setPower(isOn);
         }
+        const isCass = (this.currentModelId === 'lg_cassette');
+        if (this.cassetteIndoorAirMesh) this.cassetteIndoorAirMesh.visible = isCass && isOn;
+        if (this.cassetteOutdoorAirMesh) this.cassetteOutdoorAirMesh.visible = isCass && isOn;
         if (this.displayMesh) {
             this.displayMesh.visible = this.state.xray && (isOn || this.isACDestroyed);
         }
@@ -3863,6 +3965,28 @@ class ACScene {
         // Цифровой дисплей на каркасе (виден только в режиме Рентген при включенном питании или при аварии)
         if (this.displayMesh) {
             this.displayMesh.visible = this.state.xray && (this.state.power || this.isACDestroyed);
+        }
+
+        if (this.currentModelId === 'lg_cassette') {
+            const cassOpacity = this.state.xray ? 0.28 : 1.0;
+            const cassTransparent = this.state.xray;
+            if (this.cassetteChassisMesh) {
+                this.cassetteChassisMesh.material.transparent = cassTransparent;
+                this.cassetteChassisMesh.material.opacity = cassOpacity;
+            }
+            if (this.cassettePanelMesh) {
+                this.cassettePanelMesh.material.transparent = cassTransparent;
+                this.cassettePanelMesh.material.opacity = cassOpacity;
+            }
+            [this.dualBackMesh, this.dualLeftMesh, this.dualRightMesh, this.dualTopMesh, this.dualBotMesh].forEach(m => {
+                if (m) {
+                    m.material.transparent = cassTransparent;
+                    m.material.opacity = cassOpacity;
+                }
+            });
+            if (this.dualFrontMesh) {
+                this.dualFrontMesh.material.opacity = this.state.xray ? 0.35 : 1.0;
+            }
         }
 
         this.updateDigitalDisplay();
@@ -3985,21 +4109,41 @@ class ACScene {
         // Вращение вентиляторов (только когда кондиционер цел)
         const spinDelta = effectiveDelta;
         if (!this.isACDestroyed) {
-            if (this.animatedObjects.indoorFan && this.physics.indoorFanRpmCurrent > 0.01) {
-                this.animatedObjects.indoorFan.rotation.x -= spinDelta * this.physics.indoorFanRpmCurrent;
+            if (this.currentModelId === 'lg_cassette') {
+                // Вращение обоих вентиляторов внешнего блока LG Dual Fan (против часовой стрелки)
+                if (this.dualFanRotors && this.physics.fanRpmCurrent > 0.01) {
+                    this.dualFanRotors.forEach(r => {
+                        r.rotation.z += 1 * spinDelta * this.physics.fanRpmCurrent;
+                    });
+                }
+                // Вращение центробежной 3D турбины кассеты вокруг вертикальной оси Y
+                if (this.animatedObjects.cassetteTurboFan && this.physics.indoorFanRpmCurrent > 0.01) {
+                    this.animatedObjects.cassetteTurboFan.rotation.y += spinDelta * this.physics.indoorFanRpmCurrent;
+                }
+                // 4-сторонние моторизованные шторки жалюзи кассеты
+                if (this.cassetteLouvers) {
+                    const targetAngle = this.state.power ? (0.42 + Math.sin(time * 1.5) * 0.06) : 0.0;
+                    this.cassetteLouvers.forEach(l => {
+                        if (l.children[0]) {
+                            l.children[0].rotation.x += (targetAngle - l.children[0].rotation.x) * delta * 2.0;
+                        }
+                    });
+                }
+            } else {
+                if (this.animatedObjects.indoorFan && this.physics.indoorFanRpmCurrent > 0.01) {
+                    this.animatedObjects.indoorFan.rotation.x -= spinDelta * this.physics.indoorFanRpmCurrent;
+                }
+                if (this.animatedObjects.outdoorFanRotor && this.physics.fanRpmCurrent > 0.01) {
+                    const fanDir = (this.currentModel && typeof this.currentModel.fanDirection === 'number') ? this.currentModel.fanDirection : 1;
+                    this.animatedObjects.outdoorFanRotor.rotation.z += fanDir * spinDelta * this.physics.fanRpmCurrent;
+                }
+                if (this.animatedObjects.indoorLouvers) {
+                    this.animatedObjects.indoorLouvers.rotation.x = this.physics.louverAngle;
+                }
+                if (this.animatedObjects.solidIndoorLouver) {
+                    this.animatedObjects.solidIndoorLouver.rotation.x = this.physics.louverAngle;
+                }
             }
-            if (this.animatedObjects.outdoorFanRotor && this.physics.fanRpmCurrent > 0.01) {
-                const fanDir = (this.currentModel && typeof this.currentModel.fanDirection === 'number') ? this.currentModel.fanDirection : 1;
-                this.animatedObjects.outdoorFanRotor.rotation.z += fanDir * spinDelta * this.physics.fanRpmCurrent;
-            }
-        }
-
-        // Положение направляющей шторки жалюзи (на хай-тек модели и на корпусе Ballu)
-        if (this.animatedObjects.indoorLouvers) {
-            this.animatedObjects.indoorLouvers.rotation.x = this.physics.louverAngle;
-        }
-        if (this.animatedObjects.solidIndoorLouver) {
-            this.animatedObjects.solidIndoorLouver.rotation.x = this.physics.louverAngle;
         }
 
         // Вибрация компрессора (пропорциональна текущей скорости, только когда цел)
@@ -4079,6 +4223,51 @@ class ACScene {
                     outPos.setXYZ(i, ap.x, ap.y, ap.z);
                 }
                 outPos.needsUpdate = true;
+            }
+        }
+
+        // Анимация 4-стороннего выдува кассеты и двух уличных потоков
+        if (this.currentModelId === 'lg_cassette') {
+            if (this.indoorAirMesh) this.indoorAirMesh.visible = false;
+            if (this.outdoorAirMesh) this.outdoorAirMesh.visible = false;
+
+            if (this.cassetteIndoorAirMesh) {
+                this.cassetteIndoorAirMesh.visible = hasAirflow;
+                if (hasAirflow && this.cassetteIndoorAirVel) {
+                    const airSpeed = (0.8 + this.state.fanSpeed * 0.35) * this.state.timeScale * this.physics.airflowIntensity;
+                    const pos = this.cassetteIndoorAirMesh.geometry.attributes.position;
+                    for (let i = 0; i < this.cassetteIndoorAirVel.length; i++) {
+                        const v = this.cassetteIndoorAirVel[i];
+                        let px = pos.getX(i) + v.vx * effectiveDelta * airSpeed;
+                        let py = pos.getY(i) + v.vy * effectiveDelta * airSpeed;
+                        let pz = pos.getZ(i) + v.vz * effectiveDelta * airSpeed;
+
+                        if (py < -0.15 || Math.abs(px - (-1.6)) > 2.2 || Math.abs(pz) > 2.2) {
+                            px = -1.6 + (v.dirIdx === 2 ? 0.5 : v.dirIdx === 3 ? -0.5 : 0);
+                            py = 3.12;
+                            pz = (v.dirIdx === 0 ? 0.5 : v.dirIdx === 1 ? -0.5 : 0);
+                        }
+                        pos.setXYZ(i, px, py, pz);
+                    }
+                    pos.needsUpdate = true;
+                }
+            }
+
+            if (this.cassetteOutdoorAirMesh) {
+                this.cassetteOutdoorAirMesh.visible = hasAirflow;
+                if (hasAirflow && this.cassetteOutdoorAirVel) {
+                    const airSpeed = (0.9 + this.state.fanSpeed * 0.35) * this.state.timeScale * this.physics.airflowIntensity;
+                    const pos = this.cassetteOutdoorAirMesh.geometry.attributes.position;
+                    for (let i = 0; i < this.cassetteOutdoorAirVel.length; i++) {
+                        const v = this.cassetteOutdoorAirVel[i];
+                        let pz = pos.getZ(i) + v.vz * effectiveDelta * airSpeed;
+                        if (pz > 2.5) {
+                            pz = 0.36;
+                        }
+                        pos.setZ(i, pz);
+                    }
+                    pos.needsUpdate = true;
+                }
             }
         }
 
@@ -4256,8 +4445,16 @@ class ACScene {
                     this.debrisList = [];
 
                     // Восстанавливаем корректную видимость корпусов и дисплеев
+                    const isCassRestore = (this.currentModelId === 'lg_cassette');
+                    if (this.indoorGroup) this.indoorGroup.visible = !isCassRestore;
+                    if (this.indoorCassetteGroup) this.indoorCassetteGroup.visible = isCassRestore;
+                    if (this.outdoorGroup) this.outdoorGroup.visible = !isCassRestore;
+                    if (this.outdoorDualGroup) this.outdoorDualGroup.visible = isCassRestore;
+                    if (this.pipeGroup) this.pipeGroup.visible = !isCassRestore;
+                    if (this.cassettePipeGroup) this.cassettePipeGroup.visible = isCassRestore;
+
                     if (this.indoorSolidCasing) {
-                        this.indoorSolidCasing.visible = !this.state.xray;
+                        this.indoorSolidCasing.visible = !this.state.xray && !isCassRestore;
                     }
                     if (this.outdoorSolidCasing) {
                         this.outdoorSolidCasing.visible = !this.state.xray;
@@ -4277,9 +4474,11 @@ class ACScene {
 
                     // Восстанавливаем фреон, потоки и вращение ТОЛЬКО если кондиционер включен
                     if (this.state.power) {
-                        if (this.refParticlesMesh) this.refParticlesMesh.visible = true;
-                        if (this.indoorAirMesh) this.indoorAirMesh.visible = true;
-                        if (this.outdoorAirMesh) this.outdoorAirMesh.visible = true;
+                        if (this.refParticlesMesh) this.refParticlesMesh.visible = !isCassRestore;
+                        if (this.indoorAirMesh) this.indoorAirMesh.visible = !isCassRestore;
+                        if (this.outdoorAirMesh) this.outdoorAirMesh.visible = !isCassRestore;
+                        if (this.cassetteIndoorAirMesh) this.cassetteIndoorAirMesh.visible = isCassRestore;
+                        if (this.cassetteOutdoorAirMesh) this.cassetteOutdoorAirMesh.visible = isCassRestore;
                         this.physics.refrigerantSpeed = 1.0;
                         this.physics.airflowIntensity = 1.0;
                         const fanRpmPresets = [16, 25, 34, 46];
@@ -4294,6 +4493,8 @@ class ACScene {
                         if (this.refParticlesMesh) this.refParticlesMesh.visible = false;
                         if (this.indoorAirMesh) this.indoorAirMesh.visible = false;
                         if (this.outdoorAirMesh) this.outdoorAirMesh.visible = false;
+                        if (this.cassetteIndoorAirMesh) this.cassetteIndoorAirMesh.visible = false;
+                        if (this.cassetteOutdoorAirMesh) this.cassetteOutdoorAirMesh.visible = false;
                         this.physics.refrigerantSpeed = 0.0;
                         this.physics.airflowIntensity = 0.0;
                         this.physics.fanRpmTarget = 0.0;
@@ -4468,6 +4669,720 @@ class ACScene {
 
         return controls;
     }
+
+
+    // =========================================================================
+    // 4-WAY КАССЕТНЫЙ ВНУТРЕННИЙ БЛОК (LG CASSETTE)
+    // =========================================================================
+    buildCassetteIndoorUnit() {
+        const cassetteGroup = new THREE.Group();
+        cassetteGroup.position.set(-1.6, 3.2, 0);
+
+        const width = 1.35;
+        const height = 0.42;
+        const depth = 1.35;
+
+        // 1. Верхний запотолочный оцинкованный корпус
+        const chassisGeo = new THREE.BoxGeometry(width * 0.95, height * 0.85, depth * 0.95);
+        const chassisMat = new THREE.MeshStandardMaterial({
+            color: 0x475569,
+            metalness: 0.75,
+            roughness: 0.35
+        });
+        const chassisMesh = new THREE.Mesh(chassisGeo, chassisMat);
+        chassisMesh.position.set(0, height * 0.12, 0);
+        cassetteGroup.add(chassisMesh);
+        this.cassetteChassisMesh = chassisMesh;
+
+        // 4 угловых монтажных кронштейна подвеса
+        const bracketMat = new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.9, roughness: 0.2 });
+        for (let bx of [-1, 1]) {
+            for (let bz of [-1, 1]) {
+                const bMesh = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.04, 0.12), bracketMat);
+                bMesh.position.set(bx * (width * 0.48), height * 0.45, bz * (depth * 0.48));
+                cassetteGroup.add(bMesh);
+            }
+        }
+
+        // 2. Декоративная нижняя панель (лицом вниз к комнате)
+        const panelMat = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            roughness: 0.18,
+            metalness: 0.05
+        });
+        const panelGeo = new THREE.BoxGeometry(width * 1.05, 0.05, depth * 1.05);
+        const panelMesh = new THREE.Mesh(panelGeo, panelMat);
+        panelMesh.position.set(0, -height * 0.42, 0);
+        cassetteGroup.add(panelMesh);
+        this.cassettePanelMesh = panelMesh;
+
+        // Центральная квадратная решетка забора воздуха
+        const grillCanvas = document.createElement('canvas');
+        grillCanvas.width = 512;
+        grillCanvas.height = 512;
+        const gCtx = grillCanvas.getContext('2d');
+        gCtx.fillStyle = '#0f172a';
+        gCtx.fillRect(0, 0, 512, 512);
+        gCtx.fillStyle = '#1e293b';
+        gCtx.fillRect(20, 20, 472, 472);
+        gCtx.fillStyle = '#090d16';
+        for (let gx = 35; gx < 480; gx += 24) {
+            for (let gy = 35; gy < 480; gy += 24) {
+                gCtx.beginPath();
+                gCtx.roundRect(gx, gy, 18, 18, 4);
+                gCtx.fill();
+            }
+        }
+        gCtx.fillStyle = '#a50034';
+        gCtx.beginPath();
+        gCtx.arc(256, 492, 12, 0, Math.PI * 2);
+        gCtx.fill();
+
+        const grillTex = new THREE.CanvasTexture(grillCanvas);
+        const grillGeo = new THREE.PlaneGeometry(width * 0.58, depth * 0.58);
+        const grillMat = new THREE.MeshStandardMaterial({ map: grillTex, roughness: 0.5 });
+        const intakeGrill = new THREE.Mesh(grillGeo, grillMat);
+        intakeGrill.rotation.x = Math.PI / 2;
+        intakeGrill.position.set(0, -height * 0.448, 0);
+        cassetteGroup.add(intakeGrill);
+        this.cassetteIntakeGrill = intakeGrill;
+
+        // 3. Четыре моторизованные направляющие шторки (жалюзи 4-Way)
+        this.cassetteLouvers = [];
+        const louverMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, metalness: 0.1 });
+        const louverLen = width * 0.65;
+        const louverW = 0.08;
+
+        const louverConfigs = [
+            { pos: new THREE.Vector3(0, -height * 0.42, depth * 0.44), rotY: 0 },
+            { pos: new THREE.Vector3(0, -height * 0.42, -depth * 0.44), rotY: Math.PI },
+            { pos: new THREE.Vector3(width * 0.44, -height * 0.42, 0), rotY: -Math.PI / 2 },
+            { pos: new THREE.Vector3(-width * 0.44, -height * 0.42, 0), rotY: Math.PI / 2 }
+        ];
+
+        louverConfigs.forEach(cfg => {
+            const pivot = new THREE.Group();
+            pivot.position.copy(cfg.pos);
+            pivot.rotation.y = cfg.rotY;
+
+            const lMesh = new THREE.Mesh(new THREE.BoxGeometry(louverLen, 0.01, louverW), louverMat);
+            lMesh.position.set(0, 0, louverW / 2);
+            pivot.add(lMesh);
+
+            cassetteGroup.add(pivot);
+            this.cassetteLouvers.push(pivot);
+        });
+
+        // 4. ВНУТРЕННИЙ УЗЕЛ: ЦЕНТРОБЕЖНАЯ ТУРБИНА 3D TURBO FAN
+        const turboFanGroup = new THREE.Group();
+        turboFanGroup.position.set(0, -0.05, 0);
+
+        const hubDiskGeo = new THREE.CylinderGeometry(0.24, 0.26, 0.02, 32);
+        const hubMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.7, roughness: 0.3 });
+        const hubDisk = new THREE.Mesh(hubDiskGeo, hubMat);
+        hubDisk.position.set(0, 0.08, 0);
+        turboFanGroup.add(hubDisk);
+
+        const shroudRingGeo = new THREE.CylinderGeometry(0.18, 0.26, 0.08, 32, 1, true);
+        const ringMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.6, roughness: 0.3, side: THREE.DoubleSide });
+        const shroudRing = new THREE.Mesh(shroudRingGeo, ringMat);
+        shroudRing.position.set(0, -0.04, 0);
+        turboFanGroup.add(shroudRing);
+
+        // 16 загнутых лопаток центробежной турбины
+        const bladeGeo = new THREE.BoxGeometry(0.016, 0.12, 0.08);
+        const bladeMat = new THREE.MeshStandardMaterial({
+            color: 0x00d4ff,
+            metalness: 0.6,
+            roughness: 0.25,
+            transparent: true,
+            opacity: 0.88
+        });
+
+        for (let i = 0; i < 16; i++) {
+            const angle = (i / 16) * Math.PI * 2;
+            const b = new THREE.Mesh(bladeGeo, bladeMat);
+            const r = 0.21;
+            b.position.set(Math.cos(angle) * r, 0.02, Math.sin(angle) * r);
+            b.rotation.y = -angle + 0.55;
+            b.rotation.z = 0.22;
+            turboFanGroup.add(b);
+        }
+
+        cassetteGroup.add(turboFanGroup);
+        this.animatedObjects.cassetteTurboFan = turboFanGroup;
+        this.cassetteTurboFan = turboFanGroup;
+
+        // Мотор над турбиной
+        const motorGeo = new THREE.CylinderGeometry(0.065, 0.065, 0.12, 24);
+        const motorMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.85, roughness: 0.2 });
+        const motorMesh = new THREE.Mesh(motorGeo, motorMat);
+        motorMesh.position.set(0, 0.15, 0);
+        cassetteGroup.add(motorMesh);
+        this.cassetteMotorMesh = motorMesh;
+
+        // 5. ВНУТРЕННИЙ УЗЕЛ: 4-СТОРОННИЙ КРУГОВОЙ ИСПАРИТЕЛЬ (360° COOLING COIL)
+        const evapGroup = new THREE.Group();
+        evapGroup.position.set(0, 0.0, 0);
+
+        const tubeMat = new THREE.MeshStandardMaterial({
+            color: 0x00f2fe,
+            metalness: 0.85,
+            roughness: 0.2,
+            emissive: 0x0284c7,
+            emissiveIntensity: 0.35
+        });
+
+        const sideW = 0.88;
+        const coilH = 0.20;
+        const coilDist = 0.38;
+
+        const sideOffsets = [
+            { pos: new THREE.Vector3(0, 0, coilDist), rotY: 0 },
+            { pos: new THREE.Vector3(0, 0, -coilDist), rotY: Math.PI },
+            { pos: new THREE.Vector3(coilDist, 0, 0), rotY: Math.PI / 2 },
+            { pos: new THREE.Vector3(-coilDist, 0, 0), rotY: -Math.PI / 2 }
+        ];
+
+        sideOffsets.forEach(s => {
+            const sideGroup = new THREE.Group();
+            sideGroup.position.copy(s.pos);
+            sideGroup.rotation.y = s.rotY;
+
+            for (let r = 0; r < 4; r++) {
+                const tGeo = new THREE.CylinderGeometry(0.012, 0.012, sideW, 16);
+                tGeo.rotateZ(Math.PI / 2);
+                const tube = new THREE.Mesh(tGeo, tubeMat);
+                tube.position.set(0, (r - 1.5) * 0.045, 0);
+                sideGroup.add(tube);
+            }
+
+            const finMat = new THREE.MeshStandardMaterial({
+                color: 0x38bdf8,
+                transparent: true,
+                opacity: 0.32,
+                metalness: 0.9,
+                roughness: 0.15
+            });
+            const finMesh = new THREE.Mesh(new THREE.BoxGeometry(sideW, coilH, 0.04), finMat);
+            sideGroup.add(finMesh);
+
+            evapGroup.add(sideGroup);
+        });
+
+        cassetteGroup.add(evapGroup);
+        this.cassetteEvaporatorGroup = evapGroup;
+
+        // Дренажный поддон
+        const trayMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.3, metalness: 0.5 });
+        const trayMesh = new THREE.Mesh(new THREE.BoxGeometry(width * 0.88, 0.025, depth * 0.88), trayMat);
+        trayMesh.position.set(0, -height * 0.28, 0);
+        cassetteGroup.add(trayMesh);
+        this.cassetteDrainTray = trayMesh;
+
+        // Дренажная помпа
+        const pumpMesh = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.07, 0.09), new THREE.MeshStandardMaterial({ color: 0x0369a1 }));
+        pumpMesh.position.set(width * 0.35, -height * 0.24, depth * 0.35);
+        cassetteGroup.add(pumpMesh);
+        this.cassetteDrainPump = pumpMesh;
+
+        cassetteGroup.visible = false;
+        this.indoorCassetteGroup = cassetteGroup;
+        this.scene.add(cassetteGroup);
+    }
+
+    // =========================================================================
+    // ВЫСОКИЙ ДВУХВЕНТИЛЯТОРНЫЙ ВНЕШНИЙ БЛОК (LG SMART INVERTER DUAL FAN)
+    // =========================================================================
+    buildDualFanOutdoorUnit() {
+        const dualGroup = new THREE.Group();
+        dualGroup.position.set(1.8, 1.35, 0);
+
+        const width = 1.35;
+        const height = 1.65;
+        const depth = 0.68;
+
+        // 1. Кронштейны
+        const bMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.9, roughness: 0.3 });
+        const b1 = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.06, 0.06), bMat);
+        b1.position.set(-0.05, -height / 2 - 0.03, depth / 2 - 0.08);
+        const b2 = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.06, 0.06), bMat);
+        b2.position.set(-0.05, -height / 2 - 0.03, -depth / 2 + 0.08);
+        dualGroup.add(b1);
+        dualGroup.add(b2);
+        this.dualBracket1 = b1;
+        this.dualBracket2 = b2;
+
+        // Панели корпуса
+        const caseMat = new THREE.MeshStandardMaterial({ color: 0xf3f5f8, roughness: 0.38, metalness: 0.15 });
+        const backMesh = new THREE.Mesh(new THREE.PlaneGeometry(width, height), caseMat);
+        backMesh.rotation.y = Math.PI;
+        backMesh.position.set(0, 0, -depth / 2);
+        dualGroup.add(backMesh);
+        this.dualBackMesh = backMesh;
+
+        const leftMesh = new THREE.Mesh(new THREE.PlaneGeometry(depth, height), caseMat);
+        leftMesh.rotation.y = -Math.PI / 2;
+        leftMesh.position.set(-width / 2, 0, 0);
+        dualGroup.add(leftMesh);
+        this.dualLeftMesh = leftMesh;
+
+        const rightMesh = new THREE.Mesh(new THREE.PlaneGeometry(depth, height), caseMat);
+        rightMesh.rotation.y = Math.PI / 2;
+        rightMesh.position.set(width / 2, 0, 0);
+        dualGroup.add(rightMesh);
+        this.dualRightMesh = rightMesh;
+
+        const topMesh = new THREE.Mesh(new THREE.BoxGeometry(width + 0.04, 0.04, depth + 0.04), caseMat);
+        topMesh.position.set(0, height / 2 + 0.02, 0);
+        dualGroup.add(topMesh);
+        this.dualTopMesh = topMesh;
+
+        const botMesh = new THREE.Mesh(new THREE.BoxGeometry(width + 0.02, 0.04, depth + 0.02), caseMat);
+        botMesh.position.set(0, -height / 2 - 0.02, 0);
+        dualGroup.add(botMesh);
+        this.dualBotMesh = botMesh;
+
+        // 2. Лицевая панель с двумя решетками
+        const frontTex = this.generateDualFanFrontTexture(width, height);
+        const frontMat = new THREE.MeshStandardMaterial({
+            map: frontTex,
+            transparent: true,
+            alphaTest: 0.2,
+            roughness: 0.35,
+            metalness: 0.12,
+            side: THREE.DoubleSide
+        });
+        const frontMesh = new THREE.Mesh(new THREE.PlaneGeometry(width, height), frontMat);
+        frontMesh.position.set(0, 0, depth / 2 + 0.005);
+        dualGroup.add(frontMesh);
+        this.dualFrontMesh = frontMesh;
+
+        // 3. Два вентилятора (Верхний и Нижний)
+        const fanZ = depth / 2 - 0.14;
+        const fanX = -width * 0.14;
+        const fanYUpper = height * 0.24;
+        const fanYLower = -height * 0.24;
+
+        this.dualFanRotors = [];
+        this.dualFanStators = [];
+
+        [fanYUpper, fanYLower].forEach((fy) => {
+            const fanCenter = new THREE.Vector3(fanX, fy, fanZ);
+
+            const staticGroup = new THREE.Group();
+            staticGroup.position.copy(fanCenter);
+
+            const shroudRadius = 0.34;
+            const shroudGeo = new THREE.CylinderGeometry(shroudRadius, shroudRadius + 0.015, 0.14, 36, 1, true);
+            shroudGeo.rotateX(Math.PI / 2);
+            const sMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.5, roughness: 0.4, side: THREE.DoubleSide });
+            staticGroup.add(new THREE.Mesh(shroudGeo, sMat));
+
+            const mGeo = new THREE.CylinderGeometry(0.065, 0.065, 0.12, 20);
+            mGeo.rotateX(Math.PI / 2);
+            const mMesh = new THREE.Mesh(mGeo, new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.85 }));
+            mMesh.position.set(0, 0, -0.04);
+            staticGroup.add(mMesh);
+
+            dualGroup.add(staticGroup);
+            this.dualFanStators.push(staticGroup);
+
+            const rotorGroup = new THREE.Group();
+            rotorGroup.position.copy(fanCenter);
+            rotorGroup.position.z += 0.02;
+
+            const spinGeo = new THREE.CylinderGeometry(0.02, 0.075, 0.09, 24);
+            spinGeo.rotateX(Math.PI / 2);
+            const spinner = new THREE.Mesh(spinGeo, new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.7 }));
+            spinner.position.set(0, 0, 0.03);
+            rotorGroup.add(spinner);
+
+            const bladeMat = new THREE.MeshStandardMaterial({
+                color: 0x3b4759,
+                metalness: 0.55,
+                roughness: 0.28,
+                side: THREE.DoubleSide
+            });
+            for (let b = 0; b < 3; b++) {
+                const bladeAngle = (b / 3) * Math.PI * 2;
+                const bMesh = this.createSickleBladeMesh(bladeMat, false); // false = CCW
+                bMesh.rotation.z = bladeAngle;
+                bMesh.scale.set(0.92, 0.92, 0.92);
+                rotorGroup.add(bMesh);
+            }
+
+            dualGroup.add(rotorGroup);
+            this.dualFanRotors.push(rotorGroup);
+        });
+
+        // 4. Высокий конденсатор (на 2 вентилятора)
+        const condGroup = new THREE.Group();
+        condGroup.position.set(-width * 0.12, 0, -depth / 2 + 0.07);
+
+        const condTubeMat = new THREE.MeshStandardMaterial({
+            color: 0xff4500,
+            metalness: 0.85,
+            roughness: 0.2,
+            emissive: 0xd97706,
+            emissiveIntensity: 0.4
+        });
+        const cPasses = 14;
+        for (let p = 0; p < cPasses; p++) {
+            const tGeo = new THREE.CylinderGeometry(0.014, 0.014, width * 0.65, 16);
+            tGeo.rotateZ(Math.PI / 2);
+            const tube = new THREE.Mesh(tGeo, condTubeMat);
+            tube.position.set(0, (p - cPasses / 2) * 0.09 + 0.05, 0);
+            condGroup.add(tube);
+        }
+
+        const finsGeo = new THREE.BoxGeometry(width * 0.68, height * 0.85, 0.08);
+        const finsMat = new THREE.MeshStandardMaterial({
+            color: 0xf59e0b,
+            metalness: 0.9,
+            roughness: 0.2,
+            transparent: true,
+            opacity: 0.35
+        });
+        condGroup.add(new THREE.Mesh(finsGeo, finsMat));
+        dualGroup.add(condGroup);
+        this.dualCondenserGroup = condGroup;
+
+        // 5. Компрессор и докипатель
+        const compGroup = new THREE.Group();
+        compGroup.position.set(width * 0.28, -height * 0.22, -0.05);
+
+        const compBodyGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.62, 32);
+        const compMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.85, roughness: 0.25 });
+        const compBody = new THREE.Mesh(compBodyGeo, compMat);
+        compGroup.add(compBody);
+
+        const topCap = new THREE.Mesh(new THREE.SphereGeometry(0.18, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), compMat);
+        topCap.position.set(0, 0.31, 0);
+        compGroup.add(topCap);
+
+        const acc = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.42, 24), new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.9 }));
+        acc.position.set(-0.24, 0.03, 0);
+        compGroup.add(acc);
+
+        dualGroup.add(compGroup);
+        this.dualCompressorGroup = compGroup;
+
+        // ТРВ и реверсивный клапан
+        const vGroup = new THREE.Group();
+        vGroup.position.set(width * 0.36, -height * 0.38, depth * 0.15);
+        vGroup.add(new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.14, 16), new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.9 })));
+        dualGroup.add(vGroup);
+        this.dualExpansionValveGroup = vGroup;
+
+        const revGroup = new THREE.Group();
+        revGroup.position.set(width * 0.22, 0.15, -0.05);
+        const rMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.20, 16), new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.85 }));
+        rMesh.rotation.z = Math.PI / 2;
+        revGroup.add(rMesh);
+        dualGroup.add(revGroup);
+        this.dualReversingValveGroup = revGroup;
+
+        dualGroup.visible = false;
+        this.outdoorDualGroup = dualGroup;
+        this.scene.add(dualGroup);
+    }
+
+    generateDualFanFrontTexture(width, height) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1024;
+        canvas.height = 1250;
+        const ctx = canvas.getContext('2d');
+
+        ctx.fillStyle = '#f4f6f8';
+        ctx.fillRect(0, 0, 1024, 1250);
+
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 5;
+        ctx.strokeRect(10, 10, 1004, 1230);
+
+        const cx = 390;
+        const cyUpper = 325;
+        const cyLower = 890;
+        const radius = 240;
+        const hubRadius = 55;
+
+        [cyUpper, cyLower].forEach(cy => {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.clip();
+
+            ctx.clearRect(cx - radius, cy - radius, radius * 2, radius * 2);
+
+            ctx.fillStyle = '#f4f6f8';
+            ctx.beginPath();
+            ctx.arc(cx, cy, hubRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            [105, 160, 210, radius - 6].forEach((r, idx) => {
+                ctx.strokeStyle = idx === 3 ? '#f4f6f8' : '#e2e8f0';
+                ctx.lineWidth = idx === 3 ? 12 : 5;
+                ctx.beginPath();
+                ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                ctx.stroke();
+            });
+
+            ctx.strokeStyle = '#f8fafc';
+            ctx.lineWidth = 6;
+            for (let i = 0; i < 36; i++) {
+                const angle0 = (i / 36) * Math.PI * 2;
+                ctx.beginPath();
+                for (let step = 0; step <= 25; step++) {
+                    const t = step / 25;
+                    const r = hubRadius + t * (radius - 8 - hubRadius);
+                    const a = angle0 + Math.pow(t, 1.25) * 1.32;
+                    const px = cx + Math.cos(a) * r;
+                    const py = cy + Math.sin(a) * r;
+                    if (step === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.stroke();
+        });
+
+        ctx.fillStyle = '#e2e8f0';
+        ctx.fillRect(20, 600, 660, 16);
+
+        // Сервисная панель справа
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        this.drawRoundRect(ctx, 690, 40, 305, 1170, 24);
+        ctx.stroke();
+
+        const lx = 840, ly = 160, lr = 65;
+        ctx.fillStyle = '#a50034';
+        ctx.beginPath();
+        ctx.arc(lx, ly, lr, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = lr * 0.12;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(lx, ly, lr * 0.64, -Math.PI * 0.75, Math.PI * 0.65);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(lx - lr * 0.10, ly - lr * 0.32);
+        ctx.lineTo(lx - lr * 0.10, ly + lr * 0.16);
+        ctx.lineTo(lx + lr * 0.18, ly + lr * 0.16);
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(lx - lr * 0.28, ly - lr * 0.16, lr * 0.08, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#1e293b';
+        ctx.font = '900 64px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('LG', lx, ly + lr + 55);
+
+        ctx.fillStyle = '#475569';
+        ctx.font = 'bold 30px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+        ctx.fillText('Smart Inverter', lx, ly + lr + 115);
+
+        [440, 500, 560, 720, 780, 840].forEach(sy => {
+            ctx.fillStyle = '#e2e8f0';
+            ctx.beginPath();
+            this.drawRoundRect(ctx, 735, sy, 215, 20, 10);
+            ctx.fill();
+
+            ctx.fillStyle = '#cbd5e1';
+            ctx.beginPath();
+            this.drawRoundRect(ctx, 738, sy + 3, 209, 7, 3);
+            ctx.fill();
+        });
+
+        const hx = 750, hy = 940, hw = 180, hh = 50;
+        ctx.fillStyle = '#e2e8f0';
+        ctx.beginPath();
+        this.drawRoundRect(ctx, hx, hy, hw, hh, 12);
+        ctx.fill();
+        ctx.fillStyle = '#cbd5e1';
+        ctx.beginPath();
+        this.drawRoundRect(ctx, hx + 4, hy + 4, hw - 8, hh - 8, 8);
+        ctx.fill();
+
+        return new THREE.CanvasTexture(canvas);
+    }
+
+    // =========================================================================
+    // МЕЖБЛОЧНЫЕ ТРУБКИ КАССЕТНОГО БЛОКА
+    // =========================================================================
+    buildCassettePiping() {
+        const pipeGroup = new THREE.Group();
+        this.cassettePipingMeshes = [];
+
+        const gasMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, metalness: 0.85, roughness: 0.3 });
+        const liquidMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.9, roughness: 0.2 });
+
+        const gasCurve1 = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(-1.0, 3.2, 0.2),
+            new THREE.Vector3(-0.45, 2.5, 0.1),
+            new THREE.Vector3(-0.16, 1.98, 0.025)
+        ]);
+        const g1 = new THREE.Mesh(new THREE.TubeGeometry(gasCurve1, 24, 0.022, 12, false), gasMat);
+        pipeGroup.add(g1);
+        this.cassettePipingMeshes.push(g1);
+
+        const gasCurve2 = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(-0.16, 1.98, 0.025),
+            new THREE.Vector3(0.0, 1.92, 0.03),
+            new THREE.Vector3(0.18, 1.84, 0.025)
+        ]);
+        const g2 = new THREE.Mesh(new THREE.TubeGeometry(gasCurve2, 14, 0.022, 12, false), gasMat);
+        pipeGroup.add(g2);
+        this.cassettePipingMeshes.push(g2);
+
+        const gasCurve3 = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(0.18, 1.84, 0.025),
+            new THREE.Vector3(0.8, 1.6, -0.02),
+            new THREE.Vector3(1.7, 1.45, -0.05)
+        ]);
+        const g3 = new THREE.Mesh(new THREE.TubeGeometry(gasCurve3, 24, 0.022, 12, false), gasMat);
+        pipeGroup.add(g3);
+        this.cassettePipingMeshes.push(g3);
+
+        const liqCurve1 = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(-1.0, 3.16, 0.15),
+            new THREE.Vector3(-0.45, 2.45, 0.07),
+            new THREE.Vector3(-0.16, 1.93, -0.02)
+        ]);
+        const l1 = new THREE.Mesh(new THREE.TubeGeometry(liqCurve1, 24, 0.013, 12, false), liquidMat);
+        pipeGroup.add(l1);
+        this.cassettePipingMeshes.push(l1);
+
+        const liqCurve2 = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(-0.16, 1.93, -0.02),
+            new THREE.Vector3(0.0, 1.88, -0.02),
+            new THREE.Vector3(0.18, 1.80, -0.015)
+        ]);
+        const l2 = new THREE.Mesh(new THREE.TubeGeometry(liqCurve2, 14, 0.013, 12, false), liquidMat);
+        pipeGroup.add(l2);
+        this.cassettePipingMeshes.push(l2);
+
+        const liqCurve3 = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(0.18, 1.80, -0.015),
+            new THREE.Vector3(0.8, 1.4, 0.05),
+            new THREE.Vector3(1.7, 0.95, 0.12)
+        ]);
+        const l3 = new THREE.Mesh(new THREE.TubeGeometry(liqCurve3, 24, 0.013, 12, false), liquidMat);
+        pipeGroup.add(l3);
+        this.cassettePipingMeshes.push(l3);
+
+        pipeGroup.visible = false;
+        this.cassettePipeGroup = pipeGroup;
+        this.scene.add(pipeGroup);
+    }
+
+    // =========================================================================
+    // ВОЗДУШНЫЕ ПОТОКИ КАССЕТЫ (4 НАПРАВЛЕНИЯ) И ДВУХ ВЕНТИЛЯТОРОВ УЛИЦЫ
+    // =========================================================================
+    buildCassetteAirflow() {
+        // Внутренний поток: 4 струи из жалюзи кассеты
+        const indoorCount = 800;
+        const inGeo = new THREE.BufferGeometry();
+        const inPos = new Float32Array(indoorCount * 3);
+        const inVel = [];
+
+        for (let i = 0; i < indoorCount; i++) {
+            const dirIdx = i % 4; // 0: +Z, 1: -Z, 2: +X, 3: -X
+            let vx = 0, vz = 0;
+            if (dirIdx === 0) vz = 1.0;
+            else if (dirIdx === 1) vz = -1.0;
+            else if (dirIdx === 2) vx = 1.0;
+            else vx = -1.0;
+
+            const t = Math.random();
+            const sx = -1.6 + vx * (0.6 + t * 1.4);
+            const sy = 3.1 - t * 2.2;
+            const sz = vz * (0.6 + t * 1.4);
+
+            inPos[i * 3] = sx;
+            inPos[i * 3 + 1] = sy;
+            inPos[i * 3 + 2] = sz;
+
+            inVel.push({
+                vx: vx * (1.2 + Math.random() * 0.8),
+                vy: -(1.4 + Math.random() * 0.6),
+                vz: vz * (1.2 + Math.random() * 0.8),
+                dirIdx: dirIdx
+            });
+        }
+
+        inGeo.setAttribute('position', new THREE.BufferAttribute(inPos, 3));
+        const inMat = new THREE.PointsMaterial({
+            color: 0x38bdf8,
+            size: 0.05,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending
+        });
+
+        this.cassetteIndoorAirMesh = new THREE.Points(inGeo, inMat);
+        this.cassetteIndoorAirMesh.visible = false;
+        this.cassetteIndoorAirVel = inVel;
+        this.scene.add(this.cassetteIndoorAirMesh);
+
+        // Уличный поток: два параллельных выдува из верхнего и нижнего вентиляторов
+        const outCount = 800;
+        const outGeo = new THREE.BufferGeometry();
+        const outPos = new Float32Array(outCount * 3);
+        const outVel = [];
+
+        for (let i = 0; i < outCount; i++) {
+            const isUpper = (i % 2 === 0);
+            const cy = isUpper ? (1.35 + 0.40) : (1.35 - 0.40);
+            const angle = Math.random() * Math.PI * 2;
+            const r = Math.random() * 0.32;
+
+            const zProgress = Math.random();
+            outPos[i * 3] = 1.62 + Math.cos(angle) * r;
+            outPos[i * 3 + 1] = cy + Math.sin(angle) * r;
+            outPos[i * 3 + 2] = 0.34 + zProgress * 2.2;
+
+            outVel.push({
+                cy: cy,
+                angle: angle,
+                r: r,
+                vz: 2.2 + Math.random() * 1.5
+            });
+        }
+
+        outGeo.setAttribute('position', new THREE.BufferAttribute(outPos, 3));
+        const outMat = new THREE.PointsMaterial({
+            color: 0xf97316,
+            size: 0.05,
+            transparent: true,
+            opacity: 0.75,
+            blending: THREE.AdditiveBlending
+        });
+
+        this.cassetteOutdoorAirMesh = new THREE.Points(outGeo, outMat);
+        this.cassetteOutdoorAirMesh.visible = false;
+        this.cassetteOutdoorAirVel = outVel;
+        this.scene.add(this.cassetteOutdoorAirMesh);
+    }
+
 }
 
 window.ACScene = ACScene;

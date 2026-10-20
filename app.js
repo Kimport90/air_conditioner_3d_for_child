@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const modelBrandNames = {
         lg: 'LG DUAL INVERTER',
+        lg_cassette: 'LG MULTI V CASSETTE',
         samsung: 'SAMSUNG WINDFREE',
         kentatsu: 'KENTATSU YUKI',
         ballu: 'BALLU ECO SMART',

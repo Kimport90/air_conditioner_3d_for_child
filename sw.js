@@ -1,14 +1,15 @@
 // sw.js - Service Worker v7 с разрушением дисплея, остановкой кондиционера и плавающей кнопкой починки
-const CACHE_NAME = 'ac-3d-cache-v8';
+const CACHE_NAME = 'ac-3d-cache-v9';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
     './manifest.json',
-    './style.css?v=8',
-    './sound.js?v=7',
-    './scene.js?v=7',
-    './app.js?v=7',
+    './style.css?v=9',
+    './sound.js?v=9',
+    './scene.js?v=9',
+    './app.js?v=9',
     './conditioner/energolux.jpg',
+    './conditioner/lg.jpg',
     './conditioner/midea.jpg',
     './conditioner/mitsubishi.jpg',
     './icons/apple-touch-icon.png',
