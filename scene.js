@@ -2655,6 +2655,8 @@ class ACScene {
         pipeGroup.add(liquidOutdoor);
         this.pipingMeshes.push(liquidOutdoor);
 
+        pipeGroup.visible = true; // будет скрыт при lg_cassette через setModel()
+        this.pipeGroup = pipeGroup;
         this.scene.add(pipeGroup);
     }
 
@@ -4704,54 +4706,221 @@ class ACScene {
             }
         }
 
-        // 2. Декоративная нижняя панель (лицом вниз к комнате)
-        const panelMat = new THREE.MeshStandardMaterial({
-            color: 0xffffff,
-            roughness: 0.18,
-            metalness: 0.05
+        // 2. Декоративная нижняя панель кассеты — реалистичная Canvas-текстура (вид снизу)
+        const panelFaceSize = 1024;
+        const panelCanvas = document.createElement('canvas');
+        panelCanvas.width = panelFaceSize;
+        panelCanvas.height = panelFaceSize;
+        const pCtx = panelCanvas.getContext('2d');
+        const pw = panelFaceSize;
+        const ph = panelFaceSize;
+
+        // Фон: белый с лёгкой тенью по краям (закруглённый прямоугольник)
+        pCtx.fillStyle = '#f7f8fa';
+        pCtx.fillRect(0, 0, pw, ph);
+
+        // Скруглённые углы — угловые декоративные накладки (тёмно-серые диагональные срезы)
+        const cornerCut = 120;
+        pCtx.fillStyle = '#9ca3af';
+        // Левый верхний угол
+        pCtx.beginPath();
+        pCtx.moveTo(0, 0);
+        pCtx.lineTo(cornerCut, 0);
+        pCtx.lineTo(0, cornerCut);
+        pCtx.closePath();
+        pCtx.fill();
+        // Правый верхний угол
+        pCtx.beginPath();
+        pCtx.moveTo(pw, 0);
+        pCtx.lineTo(pw - cornerCut, 0);
+        pCtx.lineTo(pw, cornerCut);
+        pCtx.closePath();
+        pCtx.fill();
+        // Левый нижний угол
+        pCtx.beginPath();
+        pCtx.moveTo(0, ph);
+        pCtx.lineTo(cornerCut, ph);
+        pCtx.lineTo(0, ph - cornerCut);
+        pCtx.closePath();
+        pCtx.fill();
+        // Правый нижний угол
+        pCtx.beginPath();
+        pCtx.moveTo(pw, ph);
+        pCtx.lineTo(pw - cornerCut, ph);
+        pCtx.lineTo(pw, ph - cornerCut);
+        pCtx.closePath();
+        pCtx.fill();
+
+        // Скруглённые угловые вставки (светло-серые поверх тёмных)
+        pCtx.fillStyle = '#d1d5db';
+        const cs2 = 70;
+        pCtx.beginPath();
+        pCtx.moveTo(0, 0);
+        pCtx.lineTo(cs2, 0);
+        pCtx.lineTo(0, cs2);
+        pCtx.closePath();
+        pCtx.fill();
+        pCtx.beginPath();
+        pCtx.moveTo(pw, 0);
+        pCtx.lineTo(pw - cs2, 0);
+        pCtx.lineTo(pw, cs2);
+        pCtx.closePath();
+        pCtx.fill();
+        pCtx.beginPath();
+        pCtx.moveTo(0, ph);
+        pCtx.lineTo(cs2, ph);
+        pCtx.lineTo(0, ph - cs2);
+        pCtx.closePath();
+        pCtx.fill();
+        pCtx.beginPath();
+        pCtx.moveTo(pw, ph);
+        pCtx.lineTo(pw - cs2, ph);
+        pCtx.lineTo(pw, ph - cs2);
+        pCtx.closePath();
+        pCtx.fill();
+
+        // === 4 жалюзи по периметру ===
+        const louverColor = '#e5e7eb';
+        const louverBorder = '#9ca3af';
+        const louverW = 120; // ширина полосы жалюзи
+        const louverSlitH = 10;
+        const louverSlitGap = 18;
+        const louverSlitCount = 8;
+
+        // Функция рисования жалюзи-полосы
+        const drawLouverStrip = (x, y, w, h, horizontal) => {
+            pCtx.fillStyle = louverColor;
+            pCtx.strokeStyle = louverBorder;
+            pCtx.lineWidth = 2;
+            pCtx.fillRect(x, y, w, h);
+            pCtx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+
+            pCtx.fillStyle = '#c9cdd3';
+            if (horizontal) {
+                // Горизонтальные рёбра жалюзи
+                for (let s = 0; s < louverSlitCount; s++) {
+                    const sy = y + 12 + s * ((h - 24) / louverSlitCount);
+                    pCtx.fillRect(x + 6, sy, w - 12, louverSlitH * 0.5);
+                }
+            } else {
+                // Вертикальные рёбра жалюзи
+                for (let s = 0; s < louverSlitCount; s++) {
+                    const sx = x + 12 + s * ((w - 24) / louverSlitCount);
+                    pCtx.fillRect(sx, y + 6, louverSlitH * 0.5, h - 12);
+                }
+            }
+        };
+
+        const margin = 24;
+        const grillZone = cornerCut + 20;
+        const innerSize = pw - 2 * grillZone;
+
+        // Верхняя жалюзи-полоса
+        drawLouverStrip(grillZone, margin, innerSize, louverW, true);
+        // Нижняя жалюзи-полоса
+        drawLouverStrip(grillZone, ph - margin - louverW, innerSize, louverW, true);
+        // Левая жалюзи-полоса
+        drawLouverStrip(margin, grillZone, louverW, innerSize, false);
+        // Правая жалюзи-полоса
+        drawLouverStrip(pw - margin - louverW, grillZone, louverW, innerSize, false);
+
+        // === Центральная решётка воздухозабора (прямоугольная, с сеткой) ===
+        const grillInset = grillZone + louverW + 16;
+        const grillInnerSize = pw - 2 * grillInset;
+
+        // Фон решётки
+        pCtx.fillStyle = '#1e293b';
+        pCtx.fillRect(grillInset, grillInset, grillInnerSize, grillInnerSize);
+
+        // Внешняя рамка решётки
+        pCtx.strokeStyle = '#334155';
+        pCtx.lineWidth = 5;
+        pCtx.strokeRect(grillInset, grillInset, grillInnerSize, grillInnerSize);
+
+        // Сетка ячеек решётки
+        pCtx.fillStyle = '#0f172a';
+        const cellSize = 28;
+        const cellGap = 6;
+        for (let gx = grillInset + 8; gx < grillInset + grillInnerSize - cellSize; gx += cellSize + cellGap) {
+            for (let gy = grillInset + 8; gy < grillInset + grillInnerSize - cellSize; gy += cellSize + cellGap) {
+                pCtx.fillStyle = '#0f172a';
+                pCtx.beginPath();
+                pCtx.roundRect(gx, gy, cellSize, cellSize, 5);
+                pCtx.fill();
+                // Блик на ячейке
+                pCtx.fillStyle = 'rgba(56,189,248,0.08)';
+                pCtx.fillRect(gx + 2, gy + 2, cellSize / 2, cellSize / 2);
+            }
+        }
+
+        // Тонкие горизонтальные разделители
+        pCtx.strokeStyle = 'rgba(56,189,248,0.12)';
+        pCtx.lineWidth = 1;
+        for (let gy = grillInset + cellSize + cellGap / 2; gy < grillInset + grillInnerSize; gy += cellSize + cellGap) {
+            pCtx.beginPath();
+            pCtx.moveTo(grillInset, gy);
+            pCtx.lineTo(grillInset + grillInnerSize, gy);
+            pCtx.stroke();
+        }
+
+        // Логотип LG в правом нижнем углу решётки
+        const lgX = grillInset + grillInnerSize - 70;
+        const lgY = grillInset + grillInnerSize - 50;
+        pCtx.fillStyle = '#a50034';
+        pCtx.beginPath();
+        pCtx.arc(lgX, lgY, 30, 0, Math.PI * 2);
+        pCtx.fill();
+        pCtx.fillStyle = '#ffffff';
+        pCtx.font = 'bold 22px Arial, sans-serif';
+        pCtx.textAlign = 'center';
+        pCtx.textBaseline = 'middle';
+        pCtx.fillText('LG', lgX, lgY);
+
+        // Индикатор питания (синяя точка) рядом с логотипом
+        pCtx.fillStyle = '#38bdf8';
+        pCtx.beginPath();
+        pCtx.arc(lgX - 44, lgY, 7, 0, Math.PI * 2);
+        pCtx.fill();
+
+        // Лёгкая тень по периметру панели для объёма
+        const shadowGrad = pCtx.createRadialGradient(pw/2, ph/2, pw * 0.3, pw/2, ph/2, pw * 0.72);
+        shadowGrad.addColorStop(0, 'rgba(0,0,0,0)');
+        shadowGrad.addColorStop(1, 'rgba(0,0,0,0.18)');
+        pCtx.fillStyle = shadowGrad;
+        pCtx.fillRect(0, 0, pw, ph);
+
+        const panelTex = new THREE.CanvasTexture(panelCanvas);
+
+        // Нижняя плоскость (вид из комнаты) с детальной текстурой
+        const panelBottomGeo = new THREE.PlaneGeometry(width * 1.05, depth * 1.05);
+        const panelBottomMat = new THREE.MeshStandardMaterial({
+            map: panelTex,
+            roughness: 0.22,
+            metalness: 0.06
         });
-        const panelGeo = new THREE.BoxGeometry(width * 1.05, 0.05, depth * 1.05);
-        const panelMesh = new THREE.Mesh(panelGeo, panelMat);
+        const panelBottomMesh = new THREE.Mesh(panelBottomGeo, panelBottomMat);
+        panelBottomMesh.rotation.x = Math.PI / 2; // смотрит вниз
+        panelBottomMesh.position.set(0, -height * 0.44, 0);
+        cassetteGroup.add(panelBottomMesh);
+        this.cassetteIntakeGrill = panelBottomMesh; // используется как главный визуальный элемент
+
+        // Боковая рамка панели (тонкая полоска)
+        const panelRimMat = new THREE.MeshStandardMaterial({
+            color: 0xe8eaed,
+            roughness: 0.25,
+            metalness: 0.08
+        });
+        const panelBoxGeo = new THREE.BoxGeometry(width * 1.05, 0.042, depth * 1.05);
+        const panelMesh = new THREE.Mesh(panelBoxGeo, panelRimMat);
         panelMesh.position.set(0, -height * 0.42, 0);
         cassetteGroup.add(panelMesh);
         this.cassettePanelMesh = panelMesh;
-
-        // Центральная квадратная решетка забора воздуха
-        const grillCanvas = document.createElement('canvas');
-        grillCanvas.width = 512;
-        grillCanvas.height = 512;
-        const gCtx = grillCanvas.getContext('2d');
-        gCtx.fillStyle = '#0f172a';
-        gCtx.fillRect(0, 0, 512, 512);
-        gCtx.fillStyle = '#1e293b';
-        gCtx.fillRect(20, 20, 472, 472);
-        gCtx.fillStyle = '#090d16';
-        for (let gx = 35; gx < 480; gx += 24) {
-            for (let gy = 35; gy < 480; gy += 24) {
-                gCtx.beginPath();
-                gCtx.roundRect(gx, gy, 18, 18, 4);
-                gCtx.fill();
-            }
-        }
-        gCtx.fillStyle = '#a50034';
-        gCtx.beginPath();
-        gCtx.arc(256, 492, 12, 0, Math.PI * 2);
-        gCtx.fill();
-
-        const grillTex = new THREE.CanvasTexture(grillCanvas);
-        const grillGeo = new THREE.PlaneGeometry(width * 0.58, depth * 0.58);
-        const grillMat = new THREE.MeshStandardMaterial({ map: grillTex, roughness: 0.5 });
-        const intakeGrill = new THREE.Mesh(grillGeo, grillMat);
-        intakeGrill.rotation.x = Math.PI / 2;
-        intakeGrill.position.set(0, -height * 0.448, 0);
-        cassetteGroup.add(intakeGrill);
-        this.cassetteIntakeGrill = intakeGrill;
 
         // 3. Четыре моторизованные направляющие шторки (жалюзи 4-Way)
         this.cassetteLouvers = [];
         const louverMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, metalness: 0.1 });
         const louverLen = width * 0.65;
-        const louverW = 0.08;
+        const louverW3D = 0.08;
 
         const louverConfigs = [
             { pos: new THREE.Vector3(0, -height * 0.42, depth * 0.44), rotY: 0 },
@@ -4765,8 +4934,8 @@ class ACScene {
             pivot.position.copy(cfg.pos);
             pivot.rotation.y = cfg.rotY;
 
-            const lMesh = new THREE.Mesh(new THREE.BoxGeometry(louverLen, 0.01, louverW), louverMat);
-            lMesh.position.set(0, 0, louverW / 2);
+            const lMesh = new THREE.Mesh(new THREE.BoxGeometry(louverLen, 0.01, louverW3D), louverMat);
+            lMesh.position.set(0, 0, louverW3D / 2);
             pivot.add(lMesh);
 
             cassetteGroup.add(pivot);
