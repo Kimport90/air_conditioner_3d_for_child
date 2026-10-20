@@ -268,21 +268,42 @@ class ACScene {
         // Толщина стены 0.35м по X, проходит в центре X=0
         const wallGroup = new THREE.Group();
 
-        // Сама стена
-        const wallGeo = new THREE.BoxGeometry(0.35, 4.5, 5.0);
+        // Разборная стена из 16 бетонных блоков (сетка 4x4)
+        this.wallBlocks = [];
+        const wallRows = 4;
+        const wallCols = 4;
+        const totalWallH = 4.5;
+        const totalWallD = 5.0;
+        const blockW = 0.35;
+        const blockH = totalWallH / wallRows; // 1.125м
+        const blockD = totalWallD / wallCols; // 1.25м
+
+        const blockGeo = new THREE.BoxGeometry(blockW, blockH - 0.006, blockD - 0.006);
         const wallMat = new THREE.MeshStandardMaterial({
             color: 0x1f293d,
             roughness: 0.8,
             metalness: 0.1
         });
-        const wall = new THREE.Mesh(wallGeo, wallMat);
-        wall.position.set(0, 2.0, 0);
-        wall.receiveShadow = true;
-        wall.castShadow = true;
-        wallGroup.add(wall);
 
-        // Декоративный срез стены (чтобы видеть толщину как на инфографике)
-        const trimGeo = new THREE.BoxGeometry(0.37, 4.52, 0.1);
+        for (let r = 0; r < wallRows; r++) {
+            for (let c = 0; c < wallCols; c++) {
+                const block = new THREE.Mesh(blockGeo, wallMat);
+                // От Y = -0.25 до Y = 4.25 (центр Y = 2.0)
+                const py = -0.25 + (r + 0.5) * blockH;
+                // От Z = -2.5 до Z = 2.5 (центр Z = 0)
+                const pz = -2.5 + (c + 0.5) * blockD;
+                block.position.set(0, py, pz);
+                block.receiveShadow = true;
+                block.castShadow = true;
+                wallGroup.add(block);
+                this.wallBlocks.push(block);
+            }
+        }
+
+        // Декоративный срез стены из 4 неоновых сегментов
+        this.wallTrimBlocks = [];
+        const trimSegH = 4.52 / wallRows;
+        const trimGeo = new THREE.BoxGeometry(0.37, trimSegH - 0.006, 0.1);
         const trimMat = new THREE.MeshStandardMaterial({
             color: 0x3b82f6,
             roughness: 0.3,
@@ -290,9 +311,12 @@ class ACScene {
             emissive: 0x1d4ed8,
             emissiveIntensity: 0.2
         });
-        const trim = new THREE.Mesh(trimGeo, trimMat);
-        trim.position.set(0, 2.0, 2.5);
-        wallGroup.add(trim);
+        for (let r = 0; r < wallRows; r++) {
+            const trimMesh = new THREE.Mesh(trimGeo, trimMat);
+            trimMesh.position.set(0, -0.25 + (r + 0.5) * blockH, 2.5);
+            wallGroup.add(trimMesh);
+            this.wallTrimBlocks.push(trimMesh);
+        }
 
         // Гильза/отверстие в стене для прохода медных трубок
         const sleeveGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.4, 24);
@@ -305,6 +329,7 @@ class ACScene {
         const sleeve = new THREE.Mesh(sleeveGeo, sleeveMat);
         sleeve.position.set(0, 1.9, 0);
         wallGroup.add(sleeve);
+        this.wallSleeveMesh = sleeve;
 
         // Пол комнаты (слева, уютный деревянный ламинат / технологичная сетка)
         const roomFloorGeo = new THREE.PlaneGeometry(4.5, 5.0);
@@ -403,6 +428,7 @@ class ACScene {
         const backPlate = new THREE.Mesh(backPlateGeo, backPlateMat);
         backPlate.position.set(0, 0, -depth / 2 + 0.02);
         indoorGroup.add(backPlate);
+        this.indoorBackPlate = backPlate;
 
         // Испаритель (радиатор охлаждения) - изогнутая многорядная медная змейка с ламелями
         const evapGroup = new THREE.Group();
@@ -520,6 +546,7 @@ class ACScene {
         const fanMotor = new THREE.Mesh(motorGeo, new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.8 }));
         fanMotor.position.set(fanLength / 2 + 0.05, -0.14, 0.03);
         indoorGroup.add(fanMotor);
+        this.indoorFanMotor = fanMotor;
 
         // Подшипниковый узел в левом торце
         const bearingGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.03, 16);
@@ -527,6 +554,7 @@ class ACScene {
         const bearing = new THREE.Mesh(bearingGeo, new THREE.MeshStandardMaterial({ color: 0x475569 }));
         bearing.position.set(-fanLength / 2 - 0.025, -0.14, 0.03);
         indoorGroup.add(bearing);
+        this.indoorBearing = bearing;
 
         // Направляющие жалюзи снизу (выход воздуха)
         const louverGeo = new THREE.BoxGeometry(width * 0.82, 0.012, 0.12);
@@ -555,6 +583,7 @@ class ACScene {
         const grill = new THREE.Mesh(grillGeo, grillMat);
         grill.position.set(0, height / 2 - 0.01, -0.02);
         indoorGroup.add(grill);
+        this.indoorTopGrill = grill;
 
         // Реалистичный сплошной корпус Ballu Eco Smart
         this.buildIndoorSolidCasing(indoorGroup, width, height, depth);
@@ -1533,6 +1562,8 @@ class ACScene {
         b2.position.set(-0.1, -height / 2 - 0.03, -depth / 2 + 0.08);
         outdoorGroup.add(b1);
         outdoorGroup.add(b2);
+        this.outdoorBracket1 = b1;
+        this.outdoorBracket2 = b2;
 
         // 1. КОМПРЕССОР ("Сердце системы")
         // Размещается справа в отсеке внешнего блока
@@ -2343,6 +2374,7 @@ class ACScene {
 
         staticGroup.add(grillGroup);
         outdoorGroup.add(staticGroup);
+        this.outdoorFanStaticGroup = staticGroup;
 
         // 2. ВРАЩАЮЩИЙСЯ РОТОР (КОК + 3 СЕРПОВИДНЫЕ АЭРОДИНАМИЧЕСКИЕ ЛОПАСТИ)
         const rotorGroup = new THREE.Group();
@@ -2510,45 +2542,82 @@ class ACScene {
     }
 
     buildPiping() {
-        // Медные трубки межблочной трассы, проходящие через гильзу в стене (X = 0, Y = 1.9, Z = 0)
+        // Медные трубки межблочной трассы, разделенные на 6 сегментов (комната, стена, улица)
         const pipeGroup = new THREE.Group();
+        this.pipingMeshes = [];
 
-        // 1. Толстая газовая трубка (обратка низкого давления)
-        // Идет от внутреннего блока (-1.6, 2.3, 0) через стену (0, 1.9, 0.03) к внешнему блоку (1.8, 1.3, 0)
-        const gasCurve = new THREE.CatmullRomCurve3([
-            new THREE.Vector3(-1.0, 2.25, 0.0),
-            new THREE.Vector3(-0.3, 2.05, 0.02),
-            new THREE.Vector3(0.0, 1.92, 0.03),
-            new THREE.Vector3(0.4, 1.75, 0.02),
-            new THREE.Vector3(1.2, 1.35, -0.05),
-            new THREE.Vector3(1.7, 1.25, -0.05)
-        ]);
-        const gasGeo = new THREE.TubeGeometry(gasCurve, 48, 0.022, 12, false);
         const gasMat = new THREE.MeshStandardMaterial({
             color: 0x38bdf8,
             metalness: 0.85,
             roughness: 0.3
         });
-        this.gasPipeMesh = new THREE.Mesh(gasGeo, gasMat);
-        pipeGroup.add(this.gasPipeMesh);
-
-        // 2. Тонкая жидкостная трубка (высокое давление)
-        const liquidCurve = new THREE.CatmullRomCurve3([
-            new THREE.Vector3(-1.0, 2.2, -0.03),
-            new THREE.Vector3(-0.3, 2.0, -0.02),
-            new THREE.Vector3(0.0, 1.88, -0.02),
-            new THREE.Vector3(0.4, 1.7, -0.02),
-            new THREE.Vector3(1.2, 1.1, 0.08),
-            new THREE.Vector3(1.7, 0.85, 0.15)
-        ]);
-        const liquidGeo = new THREE.TubeGeometry(liquidCurve, 48, 0.013, 12, false);
         const liquidMat = new THREE.MeshStandardMaterial({
             color: 0xf59e0b,
             metalness: 0.9,
             roughness: 0.2
         });
-        this.liquidPipeMesh = new THREE.Mesh(liquidGeo, liquidMat);
-        pipeGroup.add(this.liquidPipeMesh);
+
+        // 1. Толстая газовая трубка: комнатный отрезок
+        const gasCurveIndoor = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(-1.0, 2.25, 0.0),
+            new THREE.Vector3(-0.5, 2.10, 0.015),
+            new THREE.Vector3(-0.16, 1.98, 0.025)
+        ]);
+        const gasIndoor = new THREE.Mesh(new THREE.TubeGeometry(gasCurveIndoor, 18, 0.022, 12, false), gasMat);
+        pipeGroup.add(gasIndoor);
+        this.pipingMeshes.push(gasIndoor);
+
+        // Толстая газовая трубка: отрезок внутри гильзы стены
+        const gasCurveWall = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(-0.16, 1.98, 0.025),
+            new THREE.Vector3(0.0, 1.92, 0.03),
+            new THREE.Vector3(0.18, 1.84, 0.025)
+        ]);
+        const gasWall = new THREE.Mesh(new THREE.TubeGeometry(gasCurveWall, 14, 0.022, 12, false), gasMat);
+        pipeGroup.add(gasWall);
+        this.pipingMeshes.push(gasWall);
+
+        // Толстая газовая трубка: уличный отрезок
+        const gasCurveOutdoor = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(0.18, 1.84, 0.025),
+            new THREE.Vector3(0.6, 1.65, 0.01),
+            new THREE.Vector3(1.2, 1.35, -0.05),
+            new THREE.Vector3(1.7, 1.25, -0.05)
+        ]);
+        const gasOutdoor = new THREE.Mesh(new THREE.TubeGeometry(gasCurveOutdoor, 28, 0.022, 12, false), gasMat);
+        pipeGroup.add(gasOutdoor);
+        this.pipingMeshes.push(gasOutdoor);
+
+        // 2. Тонкая жидкостная трубка: комнатный отрезок
+        const liquidCurveIndoor = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(-1.0, 2.2, -0.03),
+            new THREE.Vector3(-0.5, 2.05, -0.025),
+            new THREE.Vector3(-0.16, 1.93, -0.02)
+        ]);
+        const liquidIndoor = new THREE.Mesh(new THREE.TubeGeometry(liquidCurveIndoor, 18, 0.013, 12, false), liquidMat);
+        pipeGroup.add(liquidIndoor);
+        this.pipingMeshes.push(liquidIndoor);
+
+        // Тонкая жидкостная трубка: отрезок внутри гильзы стены
+        const liquidCurveWall = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(-0.16, 1.93, -0.02),
+            new THREE.Vector3(0.0, 1.88, -0.02),
+            new THREE.Vector3(0.18, 1.80, -0.015)
+        ]);
+        const liquidWall = new THREE.Mesh(new THREE.TubeGeometry(liquidCurveWall, 14, 0.013, 12, false), liquidMat);
+        pipeGroup.add(liquidWall);
+        this.pipingMeshes.push(liquidWall);
+
+        // Тонкая жидкостная трубка: уличный отрезок
+        const liquidCurveOutdoor = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(0.18, 1.80, -0.015),
+            new THREE.Vector3(0.6, 1.55, 0.0),
+            new THREE.Vector3(1.2, 1.1, 0.08),
+            new THREE.Vector3(1.7, 0.85, 0.15)
+        ]);
+        const liquidOutdoor = new THREE.Mesh(new THREE.TubeGeometry(liquidCurveOutdoor, 28, 0.013, 12, false), liquidMat);
+        pipeGroup.add(liquidOutdoor);
+        this.pipingMeshes.push(liquidOutdoor);
 
         this.scene.add(pipeGroup);
     }
@@ -2902,6 +2971,46 @@ class ACScene {
         }
     }
 
+        spawnWallDebrisDust() {
+        if (!this.explosionParticlesGroup) {
+            this.explosionParticlesGroup = new THREE.Group();
+            this.scene.add(this.explosionParticlesGroup);
+        }
+
+        // Облако серой бетонной пыли от разрушенной стены
+        for (let i = 0; i < 36; i++) {
+            const size = 0.08 + Math.random() * 0.18;
+            const geo = new THREE.BoxGeometry(size, size, size);
+            const mat = new THREE.MeshBasicMaterial({
+                color: Math.random() > 0.5 ? 0x64748b : 0x94a3b8,
+                transparent: true,
+                opacity: 0.85
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(
+                (Math.random() - 0.5) * 0.45,
+                0.5 + Math.random() * 3.2,
+                (Math.random() - 0.5) * 4.2
+            );
+            this.explosionParticlesGroup.add(mesh);
+
+            const vel = new THREE.Vector3(
+                Math.random() * 3.8 + 1.2,
+                (Math.random() - 0.5) * 2.8,
+                (Math.random() - 0.5) * 3.8
+            );
+
+            this.explosionParticles.push({
+                mesh,
+                vel,
+                rotVel: new THREE.Vector3((Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8),
+                life: 0,
+                maxLife: 1.8 + Math.random() * 1.0,
+                initScale: 1.0
+            });
+        }
+    }
+
     spawnFreonLeakSmoke() {
         if (!this.explosionParticlesGroup) {
             this.explosionParticlesGroup = new THREE.Group();
@@ -2950,32 +3059,55 @@ class ACScene {
         const blastOrigin = this.creeperBasePos.clone().add(new THREE.Vector3(0, 0.45, 0));
         const itemsToDisintegrate = [];
 
-        // Детали внутреннего и внешнего блока в зависимости от режима рентгена
-        if (this.state.xray) {
-            if (this.indoorCaseMesh) itemsToDisintegrate.push(this.indoorCaseMesh);
-            if (this.displayMesh) itemsToDisintegrate.push(this.displayMesh);
-            if (this.animatedObjects.indoorFan) itemsToDisintegrate.push(this.animatedObjects.indoorFan);
-
-            if (this.outdoorCaseMesh) itemsToDisintegrate.push(this.outdoorCaseMesh);
-            if (this.animatedObjects.compressor) itemsToDisintegrate.push(this.animatedObjects.compressor);
-            if (this.animatedObjects.outdoorFanRotor) itemsToDisintegrate.push(this.animatedObjects.outdoorFanRotor);
-            if (this.outdoorFanWireGrill) itemsToDisintegrate.push(this.outdoorFanWireGrill);
-            if (this.expansionValveGroup) itemsToDisintegrate.push(this.expansionValveGroup);
-            if (this.reversingValveGroup) itemsToDisintegrate.push(this.reversingValveGroup);
-        } else {
-            if (this.indoorSolidCasing) {
-                [...this.indoorSolidCasing.children].forEach(child => itemsToDisintegrate.push(child));
-            }
-            if (this.animatedObjects.indoorFan) itemsToDisintegrate.push(this.animatedObjects.indoorFan);
-
-            if (this.outdoorSolidCasing) {
-                [...this.outdoorSolidCasing.children].forEach(child => itemsToDisintegrate.push(child));
-            }
-            if (this.animatedObjects.compressor) itemsToDisintegrate.push(this.animatedObjects.compressor);
-            if (this.animatedObjects.outdoorFanRotor) itemsToDisintegrate.push(this.animatedObjects.outdoorFanRotor);
-            if (this.expansionValveGroup) itemsToDisintegrate.push(this.expansionValveGroup);
-            if (this.reversingValveGroup) itemsToDisintegrate.push(this.reversingValveGroup);
+        // 1. СТЕНА: 16 объемных бетонных блоков + 4 неоновых кромки + металлическая гильза
+        if (this.wallBlocks) {
+            this.wallBlocks.forEach(b => itemsToDisintegrate.push(b));
         }
+        if (this.wallTrimBlocks) {
+            this.wallTrimBlocks.forEach(t => itemsToDisintegrate.push(t));
+        }
+        if (this.wallSleeveMesh) {
+            itemsToDisintegrate.push(this.wallSleeveMesh);
+        }
+
+        // 2. МЕЖБЛОЧНАЯ ТРАССА: разорванные медные трубки
+        if (this.pipingMeshes) {
+            this.pipingMeshes.forEach(p => itemsToDisintegrate.push(p));
+        }
+
+        // 3. ВНУТРЕННИЙ БЛОК: абсолютно ВСЕ внешние и внутренние узлы!
+        if (this.indoorSolidCasing) {
+            [...this.indoorSolidCasing.children].forEach(child => itemsToDisintegrate.push(child));
+        }
+        if (this.indoorCaseMesh) itemsToDisintegrate.push(this.indoorCaseMesh);
+        if (this.displayMesh) itemsToDisintegrate.push(this.displayMesh);
+        if (this.evaporatorGroup) itemsToDisintegrate.push(this.evaporatorGroup);
+        if (this.animatedObjects.indoorFan) itemsToDisintegrate.push(this.animatedObjects.indoorFan);
+        if (this.indoorFanMotor) itemsToDisintegrate.push(this.indoorFanMotor);
+        if (this.indoorBearing) itemsToDisintegrate.push(this.indoorBearing);
+        if (this.indoorBackPlate) itemsToDisintegrate.push(this.indoorBackPlate);
+        if (this.indoorTopGrill) itemsToDisintegrate.push(this.indoorTopGrill);
+        if (this.animatedObjects.indoorLouvers) itemsToDisintegrate.push(this.animatedObjects.indoorLouvers);
+
+        // 4. ВНЕШНИЙ БЛОК: абсолютно ВСЕ внешние и внутренние узлы!
+        if (this.outdoorSolidCasing) {
+            [...this.outdoorSolidCasing.children].forEach(child => itemsToDisintegrate.push(child));
+        }
+        if (this.outdoorCaseMesh) itemsToDisintegrate.push(this.outdoorCaseMesh);
+        if (this.animatedObjects.compressor) itemsToDisintegrate.push(this.animatedObjects.compressor);
+        if (this.condenserGroup) itemsToDisintegrate.push(this.condenserGroup);
+        if (this.animatedObjects.outdoorFanRotor) itemsToDisintegrate.push(this.animatedObjects.outdoorFanRotor);
+        if (this.outdoorFanWireGrill) itemsToDisintegrate.push(this.outdoorFanWireGrill);
+        if (this.outdoorFanStaticGroup) itemsToDisintegrate.push(this.outdoorFanStaticGroup);
+        if (this.expansionValveGroup) itemsToDisintegrate.push(this.expansionValveGroup);
+        if (this.reversingValveGroup) itemsToDisintegrate.push(this.reversingValveGroup);
+        if (this.outdoorBracket1) itemsToDisintegrate.push(this.outdoorBracket1);
+        if (this.outdoorBracket2) itemsToDisintegrate.push(this.outdoorBracket2);
+
+        // Все разлетающиеся детали делаем видимыми
+        itemsToDisintegrate.forEach(obj => {
+            if (obj) obj.visible = true;
+        });
 
         itemsToDisintegrate.forEach(obj => {
             if (!obj || !obj.parent) return;
@@ -3046,6 +3178,7 @@ class ACScene {
 
         // Выпускаем облако фреона
         this.spawnFreonLeakSmoke();
+        this.spawnWallDebrisDust();
 
         // Уведомляем интерфейс о взрыве
         if (window.onCreeperExplosion) {
@@ -4193,7 +4326,7 @@ class ACScene {
                 }
             } else {
                 // Физическое падение и отскок обломков от пола
-                const floorY = -0.55;
+                const floorY = -0.22;
                 this.debrisList.forEach(item => {
                     if (item.settled) return;
 
